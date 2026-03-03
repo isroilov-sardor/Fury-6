@@ -27,4 +27,4 @@ The design philosophy is profoundly **inspired by the agility, intelligence, and
 More than just a machine, **Fury-6** represents a "Peace Journey"—using advanced robotics not for conflict, but for the preservation and protection of human life.
 
 ---
-*Developed by [Sening Isming]* *Part of the **Bogatiy Robotics** Ecosystem*
+*Developed by Isroilov Sarddor *Part of the *SamPS Robotics Society
