@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>AS6R Hexapod — Professional</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060810;overflow:hidden;font-family:'Courier New',monospace}
+#mainCanvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+
+/* ── SPLIT MODE ── */
+body.split #mainCanvas{width:50%;left:0}
+body.split #modelPanel{display:flex}
+#modelPanel{
+  display:none;position:fixed;top:0;right:0;width:50%;height:100%;
+  background:#030610;border-left:2px solid #00e5ff33;
+  flex-direction:column;align-items:stretch
+}
+#modelCanvas{width:100%;flex:1;display:block}
+#modelTitle{
+  color:#00e5ff88;font-size:9px;letter-spacing:.18em;
+  text-align:center;padding:7px 0 5px;border-bottom:1px solid #00e5ff22;
+  flex-shrink:0
+}
+#modelInfo{
+  color:#ffffff44;font-size:9px;text-align:center;
+  padding:5px 0;border-top:1px solid #00e5ff22;flex-shrink:0;
+  line-height:1.8
+}
+/* Toggle button */
+#splitBtn{
+  position:fixed;bottom:44px;right:16px;
+  background:rgba(0,180,255,.18);border:1px solid #00e5ff66;
+  color:#00e5ff;font-family:'Courier New',monospace;font-size:10px;
+  letter-spacing:.1em;padding:7px 14px;border-radius:4px;
+  cursor:pointer;z-index:200;transition:background .2s
+}
+#splitBtn:hover{background:rgba(0,180,255,.35)}
+
+/* ── HUD TOP-LEFT ── */
+#hud{
+  position:fixed;top:14px;left:14px;
+  color:#00e5ff;font-size:11px;line-height:2.1;
+  background:rgba(4,8,20,.8);border:1px solid #00e5ff33;
+  border-radius:6px;padding:11px 16px;pointer-events:none;min-width:210px;z-index:100
+}
+.lbl{color:#ffffff44}.val{color:#00e5ff;font-weight:bold}
+.walk{color:#ff9500!important}.wheel{color:#00cfff!important}
+.hit{color:#ff3300!important}.sel{color:#aaff00!important}
+
+/* ── LEG CONTROL HUD TOP-RIGHT ── */
+#legctl{
+  position:fixed;top:14px;right:16px;
+  font-size:11px;line-height:2;
+  background:rgba(4,8,20,.8);border:1px solid #aaff0033;
+  border-radius:6px;padding:11px 16px;pointer-events:none;min-width:220px;z-index:100
+}
+body.split #legctl{right:calc(50% + 16px)}
+#legctl .title{color:#aaff00;letter-spacing:.15em;font-size:10px;margin-bottom:4px}
+.leg-row{display:flex;align-items:center;gap:8px;margin:2px 0}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.leg-name{color:#ffffff66;font-size:10px;flex:1}
+.leg-phase{font-size:10px;font-weight:bold}
+.leg-fk{color:#aaff0088;font-size:9px}
+.active-highlight{background:rgba(170,255,0,.08);border-radius:3px;padding:0 4px}
+
+/* ── MINIMAP ── */
+#legmap{
+  position:fixed;bottom:50px;right:16px;
+  background:rgba(4,8,20,.88);border:1px solid #00e5ff44;
+  border-radius:8px;padding:10px;pointer-events:none;z-index:100
+}
+body.split #legmap{right:calc(50% + 16px)}
+#legmap canvas{display:block}
+#map-title{color:#00e5ff88;font-size:9px;letter-spacing:.15em;text-align:center;margin-bottom:6px}
+
+/* ── BANNER ── */
+#bar{
+  position:fixed;top:50%;left:25%;transform:translate(-50%,-50%);
+  font-size:24px;font-weight:bold;letter-spacing:.25em;
+  text-shadow:0 0 40px currentColor;
+  opacity:0;transition:opacity .25s;pointer-events:none;text-align:center;z-index:200
+}
+body.split #bar{left:25%}
+
+#hflash{position:fixed;inset:0;background:rgba(255,60,0,0);pointer-events:none;z-index:150;transition:background .1s}
+#ctrl{
+  position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+  color:#ffffff44;font-size:10px;letter-spacing:.08em;
+  background:rgba(0,0,0,.55);border:1px solid #ffffff11;
+  border-radius:4px;padding:6px 18px;pointer-events:none;white-space:nowrap;z-index:100
+}
+body.split #ctrl{left:25%;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div><span class="lbl">SYSTEM  </span><span class="val" id="h-mode">WHEELED</span></div>
+  <div><span class="lbl">SPEED   </span><span class="val" id="h-spd">0.0</span><span class="lbl"> u/s</span></div>
+  <div><span class="lbl">GAIT    </span><span class="val" id="h-gait">SPINNING</span></div>
+  <div><span class="lbl">PHASE   </span><span class="val" id="h-phase">0.00</span></div>
+  <div><span class="lbl">ACTIVE  </span><span class="val sel" id="h-active">NONE</span></div>
+  <div><span class="lbl">IMPACT  </span><span class="val" id="h-impact">—</span></div>
+  <div><span class="lbl">LEG CTL </span><span class="val" id="h-legctl">—</span></div>
+</div>
+
+<!-- LEG CONTROL PANEL -->
+<div id="legctl">
+  <div class="title">LEG STATUS  [1-6 SELECT]</div>
+  <div id="leg-rows"></div>
+  <div style="margin-top:6px;color:#ffffff33;font-size:9px">
+    ↑↓ FEMUR &nbsp;|&nbsp; ←→ TIBIA &nbsp;|&nbsp; R RELEASE TO GAIT
+  </div>
+</div>
+
+<!-- MINIMAP -->
+<div id="legmap">
+  <div id="map-title">ROBOT STATUS MAP</div>
+  <canvas id="mapCanvas" width="170" height="170"></canvas>
+</div>
+
+<!-- STAIR GUIDE -->
+<div id="guide" style="position:fixed;bottom:50px;left:14px;color:#aaffcc;font-size:10px;line-height:1.9;background:rgba(4,8,20,.85);border:1px solid #aaffcc33;border-radius:6px;padding:10px 14px;pointer-events:none;max-width:230px">
+  <div style="color:#aaff88;letter-spacing:.12em;font-size:9px;margin-bottom:4px">▶ STAIR CLIMBING GUIDE</div>
+  <div><span style="color:#00e5ff">①</span> Drive toward stairs (W)</div>
+  <div><span style="color:#00e5ff">②</span> Press <span style="color:#aaff00">X</span> → CLIMBING mode</div>
+  <div><span style="color:#00e5ff">③</span> Press <span style="color:#aaff00">1</span> → select front leg</div>
+  <div><span style="color:#00e5ff">④</span> <span style="color:#ff9500">↑</span> lift femur over step</div>
+  <div><span style="color:#00e5ff">⑤</span> <span style="color:#ff9500">←→</span> extend tibia forward</div>
+  <div><span style="color:#00e5ff">⑥</span> Press <span style="color:#aaff00">2</span> → leg 1 stays locked!</div>
+  <div><span style="color:#00e5ff">⑦</span> Repeat for legs <span style="color:#aaff00">3,5</span></div>
+  <div><span style="color:#00e5ff">⑧</span> Press <span style="color:#aaff00">W</span> → body rises & moves</div>
+  <div><span style="color:#ffffff44;font-size:9px">R = release leg back to gait</span></div>
+</div>
+<div id="bar"></div>
+<div id="hflash"></div>
+<div id="ctrl">W/S MOVE &nbsp;|&nbsp; A/D TURN &nbsp;|&nbsp; X TRANSFORM &nbsp;|&nbsp; V VERTICAL &nbsp;|&nbsp; 1-6 LOCK LEG &nbsp;|&nbsp; ↑↓ FEMUR &nbsp;|&nbsp; ←→ TIBIA &nbsp;|&nbsp; R RELEASE &nbsp;|&nbsp; MOUSE LOOK</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<canvas id="mainCanvas"></canvas>
+
+<!-- Model viewer panel (right half) -->
+<div id="modelPanel">
+  <div id="modelTitle">AS6R · ROBOT MODEL VIEWER · DRAG TO ROTATE</div>
+  <canvas id="modelCanvas"></canvas>
+  <div id="modelInfo">
+    BODY: Octagon elongated &nbsp;|&nbsp; LEGS: 6 × [COXA·FEMUR·TIBIA·TARSUS]<br>
+    FOOT: Torus wheel ⇄ Tungsten spike &nbsp;|&nbsp; TARSUS motor flip 180°
+  </div>
+</div>
+
+<button id="splitBtn" onclick="toggleSplit()">⊞ MODEL VIEW</button>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════
+//  MAIN RENDERER (targets #mainCanvas)
+// ════════════════════════════════════════════════════
+const mainCanvas = document.getElementById('mainCanvas');
+const renderer = new THREE.WebGLRenderer({antialias:true, canvas:mainCanvas});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.outputEncoding    = THREE.sRGBEncoding;
+renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+// ── MODEL RENDERER (targets #modelCanvas) ────────────
+const modelCanvas = document.getElementById('modelCanvas');
+const modelRenderer = new THREE.WebGLRenderer({antialias:true, canvas:modelCanvas});
+modelRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+modelRenderer.outputEncoding = THREE.sRGBEncoding;
+modelRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+modelRenderer.toneMappingExposure = 1.2;
+
+const modelScene = new THREE.Scene();
+modelScene.background = new THREE.Color(0x030610);
+modelScene.add(new THREE.AmbientLight(0x334466, 1.2));
+const mSun = new THREE.DirectionalLight(0xffeedd, 2.2);
+mSun.position.set(5,8,4); modelScene.add(mSun);
+modelScene.add(new THREE.PointLight(0x0044ff, 1.0, 30));
+const mFloor = new THREE.Mesh(
+  new THREE.CircleGeometry(4,32),
+  new THREE.MeshStandardMaterial({color:0x0a1525,roughness:.95})
+);
+mFloor.rotation.x=-Math.PI/2; mFloor.position.y=-2.2; modelScene.add(mFloor);
+// Grid
+const mGrid = new THREE.GridHelper(8,16,0x112233,0x112233);
+mGrid.position.y=-2.2; modelScene.add(mGrid);
+
+const modelCamera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
+modelCamera.position.set(0,2,-7);
+modelCamera.lookAt(0,0,0);
+let modelOrbitAngle = 0;
+let mDrag=false, mDragLastX=0, mDragDeltaY=0, mDragY=0;
+
+// Split toggle
+let splitMode = false;
+function toggleSplit(){
+  splitMode = !splitMode;
+  document.body.classList.toggle('split', splitMode);
+  document.getElementById('splitBtn').textContent = splitMode ? '✕ CLOSE VIEW' : '⊞ MODEL VIEW';
+  onResize();
+}
+
+function onResize(){
+  const w = splitMode ? Math.floor(innerWidth/2) : innerWidth;
+  renderer.setSize(w, innerHeight);
+  camera.aspect = w/innerHeight;
+  camera.updateProjectionMatrix();
+
+  if(splitMode){
+    const mc = document.getElementById('modelCanvas');
+    const mw = Math.floor(innerWidth/2);
+    const mh = innerHeight - 60;
+    modelRenderer.setSize(mw, mh);
+    modelCamera.aspect = mw/mh;
+    modelCamera.updateProjectionMatrix();
+  }
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+const scene  = new THREE.Scene();
+scene.background = new THREE.Color(0x060810);
+scene.fog = new THREE.Fog(0x060810,32,88);
+
+const camera = new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.1,200);
+camera.position.set(0,7,-13);
+
+// ── Lights ───────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x223355,0.9));
+const sun = new THREE.DirectionalLight(0xffeedd,1.6);
+sun.position.set(10,20,8); sun.castShadow=true;
+Object.assign(sun.shadow.mapSize,{width:2048,height:2048});
+Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,far:120});
+scene.add(sun);
+const pl1=new THREE.PointLight(0x0055ff,0.8,55); pl1.position.set(-14,8,-14); scene.add(pl1);
+const pl2=new THREE.PointLight(0xff4400,0.5,55); pl2.position.set(14,6,14);  scene.add(pl2);
+
+// ════════════════════════════════════════════════════
+//  ROOM  (unchanged — environment stays)
+// ════════════════════════════════════════════════════
+const ROOM = 26;
+const obstacleAABBs  = [];   // for robot body collision
+const rubbleMeshes   = [];   // for raycasting (leg foot detection)
+const raycaster      = new THREE.Raycaster();
+const DOWN           = new THREE.Vector3(0,-1,0);
+
+function addBox(w,h,d,col,x,y,z,trackObs=false,isRubble=false){
+  const mesh=new THREE.Mesh(
+    new THREE.BoxGeometry(w,h,d),
+    new THREE.MeshStandardMaterial({color:col,roughness:.75,metalness:.1})
+  );
+  mesh.position.set(x,y,z); mesh.castShadow=mesh.receiveShadow=true;
+  scene.add(mesh);
+  if(trackObs) obstacleAABBs.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,mesh,origCol:new THREE.Color(col)});
+  if(isRubble) rubbleMeshes.push(mesh);
+  return mesh;
+}
+
+// Floor
+const floorMesh=new THREE.Mesh(
+  new THREE.PlaneGeometry(ROOM*2,ROOM*2),
+  new THREE.MeshStandardMaterial({color:0x0e1520,roughness:.95})
+);
+floorMesh.rotation.x=-Math.PI/2; floorMesh.receiveShadow=true; scene.add(floorMesh);
+rubbleMeshes.push(floorMesh);
+scene.add(new THREE.GridHelper(ROOM*2,28,0x182434,0x182434));
+
+// Ceiling + walls
+addBox(ROOM*2,0.3,ROOM*2,0x0d1520,0,13,0);
+addBox(ROOM*2,13,0.5,0x131d30,0,6.5, ROOM);
+addBox(ROOM*2,13,0.5,0x131d30,0,6.5,-ROOM);
+addBox(0.5,13,ROOM*2,0x151f35, ROOM,6.5,0);
+addBox(0.5,13,ROOM*2,0x151f35,-ROOM,6.5,0);
+
+// Rubble obstacles
+[
+  [4,2.5,3,0xaa2200,10,1.25,10],
+  [3,1.5,5,0x114499,-10,.75,12],
+  [3,2.0,3,0x551188,-8,1,-8],
+  [2,4.0,2,0x774422,-13,2,-13],
+  [3,2.5,3,0x226688,12,1.25,-8],
+  [2,2.0,2,0xaa5500,6,.75,-16],
+].forEach(([w,h,d,c,x,y,z])=>addBox(w,h,d,c,x,y,z,true,true));
+
+// ── STAIRCASE (in front of robot start position) ─────────
+// 4 steps going forward (+Z), each step: 4 wide, 1.0 deep, height increases
+// Step tops are at y=0.55, 1.1, 1.65, 2.2
+const STAIR_X = 0, STAIR_Z_START = 6;
+const STAIR_W = 5, STAIR_D = 1.2;
+[
+  [STAIR_W, 1.1, STAIR_D, 0x2266aa, STAIR_X, 0.55,  STAIR_Z_START],
+  [STAIR_W, 2.2, STAIR_D, 0x2277bb, STAIR_X, 1.1,   STAIR_Z_START+STAIR_D],
+  [STAIR_W, 3.3, STAIR_D, 0x2288cc, STAIR_X, 1.65,  STAIR_Z_START+STAIR_D*2],
+  [STAIR_W, 4.4, STAIR_D, 0x2299dd, STAIR_X, 2.2,   STAIR_Z_START+STAIR_D*3],
+  // Landing platform at top
+  [STAIR_W, 4.4, 3.5,     0x1a6090, STAIR_X, 2.2,   STAIR_Z_START+STAIR_D*4+1.0],
+].forEach(([w,h,d,c,x,y,z])=>addBox(w,h,d,c,x,y,z,true,true));
+// Stair labels (glowing edge strips on each step face)
+for(let i=0;i<4;i++){
+  const stepMesh=new THREE.Mesh(
+    new THREE.BoxGeometry(STAIR_W,0.06,0.04),
+    new THREE.MeshStandardMaterial({color:0x00aaff,emissive:0x00aaff,emissiveIntensity:1.2})
+  );
+  stepMesh.position.set(STAIR_X, (i+1)*1.1, STAIR_Z_START+i*STAIR_D-0.02);
+  scene.add(stepMesh);
+}
+
+// ════════════════════════════════════════════════════
+//  MATERIALS
+// ════════════════════════════════════════════════════
+const MAT = {
+  bodyMain : new THREE.MeshStandardMaterial({color:0x1a6ece,roughness:.28,metalness:.82}),
+  bodyDark : new THREE.MeshStandardMaterial({color:0x0c3d88,roughness:.25,metalness:.92}),
+  panel    : new THREE.MeshStandardMaterial({color:0x071d44,roughness:.20,metalness:.95}),
+  camBody  : new THREE.MeshStandardMaterial({color:0x1a2a3a,roughness:.35,metalness:.85}),
+  lens     : new THREE.MeshStandardMaterial({color:0x001122,emissive:0x00aaff,emissiveIntensity:2.2,roughness:.08,metalness:.3}),
+  coxa     : new THREE.MeshStandardMaterial({color:0x1e2e40,roughness:.5,metalness:.88}),
+  femur    : new THREE.MeshStandardMaterial({color:0x3a6a99,roughness:.4,metalness:.68}),
+  tibia    : new THREE.MeshStandardMaterial({color:0x80aace,roughness:.38,metalness:.48}),
+  joint    : new THREE.MeshStandardMaterial({color:0x2a3a4c,roughness:.3,metalness:.92}),
+  footW    : new THREE.MeshStandardMaterial({color:0x222222,roughness:.9,metalness:.05}),  // dark rubber tyre
+  footP    : new THREE.MeshStandardMaterial({color:0xff5500,roughness:.35,metalness:.25}), // spike orange
+  footRim  : new THREE.MeshStandardMaterial({color:0x888899,roughness:.3,metalness:.9}),  // metal hub
+  selRing  : new THREE.MeshStandardMaterial({color:0xaaff00,emissive:0xaaff00,emissiveIntensity:1.2,transparent:true,opacity:.7}),
+};
+// Active-leg femur/tibia highlight
+const MAT_femurSel = new THREE.MeshStandardMaterial({color:0x44ff88,roughness:.4,metalness:.5});
+const MAT_tibiaSel = new THREE.MeshStandardMaterial({color:0xaaff00,roughness:.4,metalness:.5});
+
+// ════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════
+function mk(geo,mat,px=0,py=0,pz=0,parent=null,rx=0,ry=0,rz=0){
+  const m=new THREE.Mesh(geo,mat); m.position.set(px,py,pz); m.rotation.set(rx,ry,rz);
+  m.castShadow=true; if(parent) parent.add(m); return m;
+}
+function piv(px,py,pz,parent){ const o=new THREE.Object3D(); o.position.set(px,py,pz); if(parent) parent.add(o); return o; }
+function ball(r,mat,px,py,pz,parent){ return mk(new THREE.SphereGeometry(r,8,8),mat,px,py,pz,parent); }
+
+const lerp  = (a,b,t)=>a+(b-a)*t;
+const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const smooth= t=>t*t*(3-2*t);
+const damp  = (a,b,lam,dt)=>lerp(a,b,1-Math.exp(-lam*dt));
+const DEG   = Math.PI/180;
+
+// ════════════════════════════════════════════════════
+//  GAIT CONSTANTS
+// ════════════════════════════════════════════════════
+const TRIPOD_A   = new Set([0,2,4]);
+const CL=0.48, FL=0.62, TL=0.56;   // shorter, compact spider legs
+const COXA_AMP   = 26*DEG;
+const FEMUR_LIFT = 26*DEG;
+const TIBIA_COMP = 18*DEG;
+const FEMUR_WHEEL = 32*DEG;
+const TIBIA_WHEEL = -26*DEG;
+const FEMUR_WALK  = 28*DEG;
+const TIBIA_WALK  = -22*DEG;
+const FEMUR_MIN = -30*DEG, FEMUR_MAX = 85*DEG;
+const TIBIA_MIN = -85*DEG, TIBIA_MAX = 15*DEG;
+
+// ════════════════════════════════════════════════════
+//  LEG CLASS
+// ════════════════════════════════════════════════════
+/*
+  transformFactor: 0 = WHEEL (flat torus-disc), 1 = SPIKE (tall cone)
+  In "Iris" style: as factor goes 0→1:
+    scaleX/Z: 1.4 → 0.28   (iris closes)
+    scaleY:   0.14 → 2.0   (spike grows)
+
+  FK override: when this leg is "selected" (activeLegIndex === this.index),
+  arrow keys directly rotate femur/tibia. Gait is paused for this leg.
+
+  Raycaster: a ray fires from the foot world position downward each frame.
+  The result (groundY) lets us know if the foot is hovering over a rubble block.
+  In WHEEL mode:  if foot ray hits obstacle top > groundLevel, we flag blockage.
+  In POINTER mode: the FK control lets operator lift the leg over.
+*/
+class Leg{
+  constructor(root, index, vertexAngleDeg){
+    this.index  = index;
+    this.group  = TRIPOD_A.has(index) ? 'A' : 'B';
+    this.mode   = 'WHEEL';
+    this.phase  = 'IDLE';
+    this.wheelAngle = 0;
+
+    // FK manual control state
+    this.fkActive    = false;  // currently selected (responding to arrows)
+    this.fkLocked    = false;  // holds position even when deselected
+    this.fkFemurDeg  = 0;
+    this.fkTibiaDeg  = 0;
+
+    // Foot morphing 0=wheel 1=spike
+    this.transformFactor = 0.0;
+    this.txTarget        = 0.0;
+
+    // Raycaster result
+    this.groundY   = 0;
+    this.blocked   = false;
+
+    // Wider hex placement for spider-like reach
+    const ang = vertexAngleDeg * DEG;
+    const HEX_R = 1.55;
+    const vx = Math.cos(ang)*HEX_R;
+    const vz = Math.sin(ang)*HEX_R;
+    // sideX: used for differential wheel steering (+right, -left)
+    this.sideX = Math.cos(ang);   // +1 = right side, -1 = left side
+
+    this.shoulder = piv(vx,0,vz,root);
+    this.shoulder.rotation.y = -ang;
+
+    // COXA — thinner horizontal bar going outward
+    this.coxaPivot = piv(0,0,0, this.shoulder);
+    this.coxaMesh  = mk(new THREE.BoxGeometry(0.10,0.10,CL), MAT.coxa, 0,0,CL/2, this.coxaPivot);
+    ball(0.085,MAT.joint, 0,0,0,   this.coxaPivot);
+    ball(0.075,MAT.joint, 0,0,CL,  this.coxaPivot);
+
+    // FEMUR — thinner, shorter
+    this.femurPivot = piv(0,0,CL, this.coxaPivot);
+    this.femurPivot.rotation.x = FEMUR_WHEEL;
+    this.femurMesh  = mk(new THREE.BoxGeometry(0.085,FL,0.085), MAT.femur, 0,-FL/2,0, this.femurPivot);
+    ball(0.085,MAT.joint, 0,-FL,0, this.femurPivot);
+
+    // TIBIA — thinnest
+    this.tibiaPivot = piv(0,-FL,0, this.femurPivot);
+    this.tibiaPivot.rotation.x = TIBIA_WHEEL;
+    this.tibiaMesh  = mk(new THREE.BoxGeometry(0.07,TL,0.07), MAT.tibia, 0,-TL/2,0, this.tibiaPivot);
+    ball(0.07,MAT.joint, 0,-TL,0, this.tibiaPivot);
+
+    // FOOT PIVOT
+    this.footPivot = piv(0,-TL,0, this.tibiaPivot);
+
+    // ══ TARSUS — motor arm, wheel one end, spike other end ══
+    const ARM = 0.20;
+    // Motor housing
+    mk(new THREE.CylinderGeometry(0.05,0.05,0.09,10),
+       new THREE.MeshStandardMaterial({color:0x445566,roughness:.25,metalness:.95}),
+       0,0,0, this.footPivot);
+    // Arm bar
+    mk(new THREE.BoxGeometry(0.05,ARM*2,0.05), MAT.coxa, 0,0,0, this.footPivot);
+
+    // TARSUS PIVOT (motor rotation: 0=wheel down, π=spike down)
+    this.tarsusPivot = piv(0,0,0, this.footPivot);
+    this.tarsusAngle = 0;
+    this.tarsusTarget = 0;
+
+    // ── WHEEL SPIN AXIS at wheel-end of arm ─────────────────
+    this.wheelSpinAxis = piv(0,-ARM,0, this.tarsusPivot);
+
+    // WHEEL STRATEGY: each frame we compute the parent's world quaternion,
+    // invert it, then multiply by our desired world orientation.
+    // Desired world orient = Ry(PI/2) (standing vertical) * Rx(rollAngle).
+    // This makes the wheel ALWAYS appear vertical & rolling in world space,
+    // regardless of the parent chain rotations.
+    this.wheelMesh = mk(
+      new THREE.TorusGeometry(0.22, 0.09, 12, 24),
+      MAT.footW, 0,0,0, this.wheelSpinAxis
+    );
+    // Tyre tread marks (dark stripes = spokes visual)
+    for(let s=0;s<5;s++){
+      const spoke = mk(
+        new THREE.BoxGeometry(0.02, 0.44, 0.04),
+        new THREE.MeshStandardMaterial({color:0xcc9900,roughness:.6}),
+        0,0,0, this.wheelSpinAxis
+      );
+      spoke.rotation.x = s*Math.PI/5;  // 5 spokes
+      this.wheelSpinAxis.add(spoke);
+    }
+    // Hub
+    this.wheelHub = mk(
+      new THREE.CylinderGeometry(0.10,0.10,0.05,10),
+      new THREE.MeshStandardMaterial({color:0x889aaa,roughness:.2,metalness:.95}),
+      0,0,0, this.wheelSpinAxis
+    );
+
+    // Pre-allocated quaternions (no GC per frame)
+    this._pWorldQ  = new THREE.Quaternion();
+    this._pWorldQi = new THREE.Quaternion();
+    this._desiredQ = new THREE.Quaternion();
+    this._baseWheelQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI/2, 0));
+    this._rollQ    = new THREE.Quaternion();
+    this._rollAxis = new THREE.Vector3(1,0,0);
+
+    // ── SPIKE — always on opposite end ──────────────────────
+    this.spikeMesh = mk(
+      new THREE.ConeGeometry(0.052, 0.44, 10),
+      MAT.footP, 0,ARM+0.22,0, this.tarsusPivot
+    );
+    this.spikeMesh.rotation.x = Math.PI;
+
+    // Scratch quaternions - kept for possible future use
+    this._vA = new THREE.Vector3();
+
+    // Selection ring
+    this.selRing = mk(
+      new THREE.TorusGeometry(0.20,0.02,6,20),
+      MAT.selRing, 0,0,0, this.footPivot, Math.PI/2,0,0
+    );
+    this.selRing.visible = false;
+
+    this.footWorldPos = new THREE.Vector3();
+  }
+
+  // ── Motor flip: rotates tarsus arm 180° to swap wheel/spike ─
+  setMode(toPointer){
+    // 0 = wheel down, Math.PI = spike down
+    this.tarsusTarget = toPointer ? Math.PI : 0;
+    this.txTarget = toPointer ? 1.0 : 0.0;  // keep for mode tracking
+  }
+
+  setSelected(active){
+    this.fkActive = active;
+    this.selRing.visible = active;
+    if(active){
+      // Selecting: start locking from now on
+      this.fkLocked = true;
+    }
+    // NOTE: deselecting does NOT touch fkLocked or fkFemurDeg/fkTibiaDeg
+    // The leg KEEPS its position until releaseLock() is explicitly called (R key)
+    this.femurMesh.material = active ? MAT_femurSel : MAT.femur;
+    this.tibiaMesh.material = active ? MAT_tibiaSel : MAT.tibia;
+  }
+
+  // R key: reset FK offsets for currently selected leg (keeps it selected)
+  resetFK(){
+    this.fkFemurDeg = 0;
+    this.fkTibiaDeg = 0;
+  }
+
+  // Full release: leg returns to auto gait
+  releaseLock(){
+    this.fkLocked    = false;
+    this.fkActive    = false;
+    this.fkFemurDeg  = 0;
+    this.fkTibiaDeg  = 0;
+    this.selRing.visible = false;
+    this.femurMesh.material = MAT.femur;
+    this.tibiaMesh.material = MAT.tibia;
+  }
+
+  applyFK(dt, upKey, downKey, leftKey, rightKey){
+    const SPEED = 72*DEG;
+    if(upKey)    this.fkFemurDeg = clamp(this.fkFemurDeg - SPEED*dt, FEMUR_MIN, FEMUR_MAX);
+    if(downKey)  this.fkFemurDeg = clamp(this.fkFemurDeg + SPEED*dt, FEMUR_MIN, FEMUR_MAX);
+    if(leftKey)  this.fkTibiaDeg = clamp(this.fkTibiaDeg - SPEED*dt, TIBIA_MIN, TIBIA_MAX);
+    if(rightKey) this.fkTibiaDeg = clamp(this.fkTibiaDeg + SPEED*dt, TIBIA_MIN, TIBIA_MAX);
+  }
+
+  updateRaycast(){
+    this.footPivot.getWorldPosition(this.footWorldPos);
+    raycaster.set(
+      new THREE.Vector3(this.footWorldPos.x, this.footWorldPos.y+0.5, this.footWorldPos.z),
+      DOWN
+    );
+    const hits = raycaster.intersectObjects(rubbleMeshes, false);
+    if(hits.length>0){
+      this.groundY = hits[0].point.y;
+      this.blocked = (this.mode==='WHEEL') && (this.groundY > 0.25);
+    } else {
+      this.groundY = 0;
+      this.blocked = false;
+    }
+    // AUTO-CLIMB: if terrain under foot is higher than floor AND not locked,
+    // automatically push fkFemurDeg up to compensate (like animal reflexes)
+    if(!this.fkLocked && this.mode==='POINTER' && this.groundY > 0.4){
+      // Terrain is elevated — auto-lift this leg proportionally
+      const liftNeeded = Math.min(this.groundY * 20, 45) * DEG;
+      if(this.fkFemurDeg > -liftNeeded + 2*DEG){
+        this.fkFemurDeg = damp(this.fkFemurDeg, -liftNeeded, 3, 0.016);
+        this.fkLocked = true;   // auto-lock so body can follow
+      }
+    }
+  }
+
+  update(dt, gaitPhase, isMoving, fwdSpeed, rotVel){
+    // ── MOTOR FLIP ──────────────────────────────────────────
+    this.tarsusAngle = damp(this.tarsusAngle, this.tarsusTarget, 5, dt);
+    this.tarsusPivot.rotation.z = this.tarsusAngle;
+    this.transformFactor = damp(this.transformFactor, this.txTarget, 5, dt);
+    this.mode = this.transformFactor < 0.5 ? 'WHEEL' : 'POINTER';
+
+    // ── WHEEL: world-aligned orientation ────────────────────
+    const effectiveSpeed = fwdSpeed - rotVel * this.sideX * 1.2;
+    if(Math.abs(effectiveSpeed)>0.02) this.wheelAngle += dt * effectiveSpeed * 18;
+
+    // Get parent's world quaternion, invert it
+    this.wheelSpinAxis.parent.getWorldQuaternion(this._pWorldQ);
+    this._pWorldQi.copy(this._pWorldQ).invert();
+    // Build desired world quaternion: Ry(PI/2) then Rx(roll)
+    this._rollQ.setFromAxisAngle(this._rollAxis, this.wheelAngle);
+    this._desiredQ.multiplyQuaternions(this._baseWheelQ, this._rollQ);
+    // Local quaternion = inv(parentWorld) * desiredWorld
+    this.wheelSpinAxis.quaternion.multiplyQuaternions(this._pWorldQi, this._desiredQ);
+
+    // ── FK LOCKED: this leg holds its position ─────────────
+    // fkActive = currently being controlled by arrows
+    // fkLocked = holds position even when you've moved to another leg
+    if(this.fkLocked){
+      const baseF = this.mode==='WHEEL' ? FEMUR_WHEEL : FEMUR_WALK;
+      const baseT = this.mode==='WHEEL' ? TIBIA_WHEEL : TIBIA_WALK;
+      const spd = this.fkActive ? 10 : 18;  // snap faster when not being actively moved
+      this.femurPivot.rotation.x = damp(this.femurPivot.rotation.x, baseF+this.fkFemurDeg, spd, dt);
+      this.tibiaPivot.rotation.x = damp(this.tibiaPivot.rotation.x, baseT+this.fkTibiaDeg, spd, dt);
+      this.coxaPivot.rotation.y  = damp(this.coxaPivot.rotation.y, 0, 5, dt);
+      this.phase = this.fkActive ? 'MANUAL' : 'LOCKED';
+      return;
+    }
+
+    // ── WHEEL MODE — legs step with gentle tripod gait ────
+    if(this.mode==='WHEEL'){
+      this.phase = Math.abs(fwdSpeed)>0.05 ? 'STANCE' : 'IDLE';
+      if(Math.abs(fwdSpeed)>0.05){
+        // Gentle stepping — same tripod logic but shallower angles
+        const lp  = this.group==='A' ? gaitPhase : (gaitPhase+0.5)%1.0;
+        const dir = fwdSpeed>=0?1:-1;
+        if(lp<0.5){
+          const t=lp/0.5, arch=Math.sin(t*Math.PI);
+          this.coxaPivot.rotation.y  = lerp(-COXA_AMP*0.7, COXA_AMP*0.7, t)*dir;
+          this.femurPivot.rotation.x = FEMUR_WHEEL - FEMUR_LIFT*0.5*arch;
+          this.tibiaPivot.rotation.x = TIBIA_WHEEL + TIBIA_COMP*0.4*arch;
+          this.phase = 'SWING';
+        } else {
+          const t=(lp-0.5)/0.5;
+          this.coxaPivot.rotation.y  = lerp(COXA_AMP*0.7, -COXA_AMP*0.7, t)*dir;
+          this.femurPivot.rotation.x = damp(this.femurPivot.rotation.x, FEMUR_WHEEL, 8, dt);
+          this.tibiaPivot.rotation.x = damp(this.tibiaPivot.rotation.x, TIBIA_WHEEL, 8, dt);
+        }
+      } else {
+        this.femurPivot.rotation.x = damp(this.femurPivot.rotation.x, FEMUR_WHEEL, 5, dt);
+        this.tibiaPivot.rotation.x = damp(this.tibiaPivot.rotation.x, TIBIA_WHEEL, 5, dt);
+        this.coxaPivot.rotation.y  = damp(this.coxaPivot.rotation.y, 0, 5, dt);
+      }
+      return;
+    }
+
+    // ── TRIPOD GAIT ────────────────────────────────────────
+    const lp  = this.group==='A' ? gaitPhase : (gaitPhase+0.5)%1.0;
+    const dir = fwdSpeed>=0 ? 1 : -1;
+
+    if(lp < 0.5){
+      const t    = lp/0.5;
+      const arch = Math.sin(t*Math.PI);
+      if(isMoving){
+        this.coxaPivot.rotation.y  = lerp(-COXA_AMP, COXA_AMP, t)*dir;
+        this.femurPivot.rotation.x = FEMUR_WALK - FEMUR_LIFT*arch;
+        this.tibiaPivot.rotation.x = TIBIA_WALK + TIBIA_COMP*arch;
+        this.phase = 'SWING';
+      }
+    } else {
+      const t = (lp-0.5)/0.5;
+      if(isMoving){
+        this.coxaPivot.rotation.y  = lerp(COXA_AMP, -COXA_AMP, t)*dir;
+        this.femurPivot.rotation.x = damp(this.femurPivot.rotation.x, FEMUR_WALK, 8, dt);
+        this.tibiaPivot.rotation.x = damp(this.tibiaPivot.rotation.x, TIBIA_WALK, 8, dt);
+        this.phase = 'STANCE';
+      }
+    }
+
+    if(!isMoving){
+      this.phase = 'IDLE';
+      this.coxaPivot.rotation.y  = damp(this.coxaPivot.rotation.y, 0, 5, dt);
+      this.femurPivot.rotation.x = damp(this.femurPivot.rotation.x, FEMUR_WALK, 5, dt);
+      this.tibiaPivot.rotation.x = damp(this.tibiaPivot.rotation.x, TIBIA_WALK, 5, dt);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  HEXAPOD
+// ════════════════════════════════════════════════════
+class Hexapod{
+  constructor(){
+    this.root = new THREE.Object3D();
+    // ZYX order: Z tilt applied first, then Y heading. Prevents gimbal lock in vertical mode.
+    this.root.rotation.order = 'ZYX';
+    this.root.position.set(0,2.0,0);
+    scene.add(this.root);
+
+    // ── OCTAGONAL CHASSIS — ELONGATED (longer front-back) ──
+    // Scale X=1.5 on a group makes body oval/rectangular, legs stay round
+    this.bodyGroup = new THREE.Object3D();
+    this.root.add(this.bodyGroup);
+    this.bodyGroup.scale.set(1.0, 1.0, 1.65); // strong front-back elongation
+
+    this.hexPlate = mk(new THREE.CylinderGeometry(1.65,1.60,0.30,8,1), MAT.bodyMain,0,0,0,this.bodyGroup);
+    mk(new THREE.CylinderGeometry(1.20,1.55,0.22,8,1), MAT.bodyDark, 0,0.25,0,this.bodyGroup);
+    mk(new THREE.CylinderGeometry(0.80,1.15,0.20,8,1), MAT.panel,    0,0.44,0,this.bodyGroup);
+    mk(new THREE.CylinderGeometry(0.55,0.55,0.07,8,1),
+       new THREE.MeshStandardMaterial({color:0x091e44,roughness:.18,metalness:.97}),
+       0,0.59,0,this.bodyGroup);
+    // Front nose extension — makes direction obvious
+    mk(new THREE.BoxGeometry(0.55,0.14,0.45),
+       new THREE.MeshStandardMaterial({color:0x0044aa,roughness:.2,metalness:.9}),
+       0,0.10,1.52,this.bodyGroup);
+    // Front visor
+    mk(new THREE.BoxGeometry(0.80,0.09,0.07),
+       new THREE.MeshStandardMaterial({color:0x001133,emissive:0x0088ff,emissiveIntensity:2.2}),
+       0,0.46,1.46,this.bodyGroup);
+    // Rear exhaust ports
+    for(const ox of[-0.22,0.22]){
+      mk(new THREE.CylinderGeometry(0.055,0.07,0.18,8),
+         new THREE.MeshStandardMaterial({color:0xff4400,emissive:0xff2200,emissiveIntensity:.8}),
+         ox,0.08,-1.52,this.bodyGroup, 0,0,0);
+    }
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4+Math.PI/8;
+      mk(new THREE.BoxGeometry(0.16,0.28,0.36),MAT.panel,
+         Math.cos(a)*1.40,0.10,Math.sin(a)*1.40,this.bodyGroup, 0,a,0);
+    }
+
+    // ── TOP CAMERA UNIT ──────────────────────────────────
+    const camMount = piv(0,0.60,0,this.bodyGroup);
+    mk(new THREE.CylinderGeometry(0.16,0.20,0.10,8), MAT.camBody,0,0,0,camMount);
+    mk(new THREE.CylinderGeometry(0.06,0.06,0.16,8), MAT.camBody,0,0.13,0,camMount);
+    const camHead = piv(0,0.22,0,camMount);
+    mk(new THREE.BoxGeometry(0.26,0.16,0.20), MAT.camBody,0,0,0,camHead);
+    // Main lens
+    mk(new THREE.CylinderGeometry(0.065,0.065,0.05,12), MAT.lens,0,0,0.11,camHead, Math.PI/2,0,0);
+    // Stereo side lenses
+    for(const sx of[-0.07,0.07]) ball(0.035,MAT.lens,sx,0.03,0.105,camHead);
+    // Blinking red indicator
+    this.camLight = ball(0.028,
+      new THREE.MeshStandardMaterial({color:0xff0000,emissive:0xff0000,emissiveIntensity:3}),
+      0.11,0.055,0.08,camHead);
+    this.camHead = camHead;
+    this.camLightT = 0;
+
+    // ── 6 LEGS at hexagon vertices ───────────────────────
+    // Angles: 30,90,150,210,270,330  (hex rotated so flat sides face front)
+    const legAngles = [30,90,150,210,270,330];
+    this.legs = legAngles.map((a,i)=>new Leg(this.root,i,a));
+
+    // ── STATE MACHINE ────────────────────────────────────
+    // WHEELED: all legs in wheel mode, body moves freely
+    // CLIMBING: all legs in pointer mode, FK available
+    this.systemState  = 'WHEELED';   // 'WHEELED' | 'CLIMBING'
+    this.activeLegIdx = -1;          // -1 = none selected
+    this.moveSpd      = 8;
+    this.vel          = 0;
+    this.rotVel       = 0;
+    this.heading      = 0;
+    this.gaitT        = 0;
+    this.targetY      = 2.0;
+    this.verticalMode = false;
+    this.targetTiltX  = 0;
+    this.targetTiltZ  = 0;    // sideways tilt for vertical mode
+    this.impVel       = new THREE.Vector2(0,0);
+    this.shake        = 0;
+    this.impactTimer  = 0;
+    this.impactLabel  = '—';
+
+    this._buildLegStatusPanel();
+  }
+
+  // ── Build leg status rows in DOM ─────────────────────────
+  _buildLegStatusPanel(){
+    const container = document.getElementById('leg-rows');
+    container.innerHTML='';
+    this.legRows = [];
+    const names = ['LF','RF','LM','RM','LR','RR'];
+    for(let i=0;i<6;i++){
+      const row = document.createElement('div');
+      row.className='leg-row'; row.id=`lrow${i}`;
+      row.innerHTML=`
+        <span class="leg-dot" id="ldot${i}"></span>
+        <span style="color:#00e5ff88;font-size:10px">[${i+1}]</span>
+        <span class="leg-name">${names[i]}</span>
+        <span class="leg-phase" id="lphase${i}">IDLE</span>
+        <span class="leg-fk" id="lfk${i}"></span>`;
+      container.appendChild(row);
+      this.legRows.push(row);
+    }
+  }
+
+  // ── Select / deselect leg ────────────────────────────────
+  selectLeg(idx){
+    if(this.activeLegIdx===idx){
+      // Press same number again → deactivate arrows but leg STAYS LOCKED
+      const l = this.legs[idx];
+      l.fkActive = false;
+      l.selRing.visible = false;
+      l.femurMesh.material = MAT.femur;
+      l.tibiaMesh.material = MAT.tibia;
+      this.activeLegIdx = -1;
+    } else {
+      // Switch to new leg: old leg keeps lock silently
+      if(this.activeLegIdx>=0){
+        const prev = this.legs[this.activeLegIdx];
+        prev.fkActive = false;
+        prev.selRing.visible = false;
+        prev.femurMesh.material = MAT.femur;
+        prev.tibiaMesh.material = MAT.tibia;
+        // fkLocked stays TRUE, fkFemurDeg/fkTibiaDeg preserved
+      }
+      this.activeLegIdx = idx;
+      this.legs[idx].setSelected(true);
+    }
+  }
+
+  toggleVertical(){
+    this.verticalMode = !this.verticalMode;
+    if(this.verticalMode){
+      // Tip robot 90° sideways on Z axis — robot stands on its SIDE like image
+      // Body rises first so legs don't clip ground
+      this.targetY = 3.5;
+      this.targetTiltZ = 88 * DEG;  // nearly 90° sideways
+      this.targetTiltX = 0;
+      showBanner('VERTICAL MODE','#aaff00');
+    } else {
+      this.targetY = this.systemState==='CLIMBING' ? 2.7 : 2.0;
+      this.targetTiltZ = 0;
+      this.targetTiltX = 0;
+      showBanner('NORMAL MODE','#00cfff');
+    }
+  }
+
+  // ── Mode toggle (X key) ──────────────────────────────────
+  toggleMode(){
+    if(this.systemState==='WHEELED'){
+      this.systemState='CLIMBING'; this.moveSpd=4; this.targetY=2.7; this.gaitT=0;
+      this.legs.forEach(l=>l.setMode(true));
+      showBanner('CLIMBING MODE\n[1-6] SELECT LEG','#ff9500');
+    } else {
+      this.systemState='WHEELED'; this.moveSpd=8; this.targetY=2.0;
+      this.legs.forEach(l=>{ l.setMode(false); l.setSelected(false); });
+      if(this.activeLegIdx>=0){ this.activeLegIdx=-1; }
+      showBanner('WHEELED MODE','#00cfff');
+    }
+  }
+
+  // ── Body collision ───────────────────────────────────────
+  checkCollision(){
+    const px=this.root.position.x, pz=this.root.position.z;
+    const R=1.7;  // bigger body radius
+    let pushX=0, pushZ=0;
+    for(const obs of obstacleAABBs){
+      const cx=clamp(px,obs.minX,obs.maxX);
+      const cz=clamp(pz,obs.minZ,obs.maxZ);
+      const dx=px-cx, dz=pz-cz;
+      const dist=Math.sqrt(dx*dx+dz*dz);
+      if(dist<R){
+        const depth=R-dist, nx=dist>.001?dx/dist:1, nz=dist>.001?dz/dist:0;
+        pushX+=nx*depth; pushZ+=nz*depth;
+        this.impVel.x+=nx*Math.abs(this.vel)*.75;
+        this.impVel.y+=nz*Math.abs(this.vel)*.75;
+        this.shake=0.20; this.impactTimer=0.8; this.impactLabel='COLLISION!';
+        obs.mesh.material.emissive=new THREE.Color(0xff2200);
+        obs.mesh.material.emissiveIntensity=0.9;
+        setTimeout(()=>{obs.mesh.material.emissive.set(0);obs.mesh.material.emissiveIntensity=0;},140);
+        document.getElementById('hflash').style.background='rgba(255,60,0,.18)';
+        setTimeout(()=>document.getElementById('hflash').style.background='rgba(255,60,0,0)',120);
+      }
+    }
+    if(Math.abs(px)>ROOM-1.4){ pushX+=Math.sign(-px)*.15; this.shake=.1; this.impactTimer=.4; this.impactLabel='WALL'; }
+    if(Math.abs(pz)>ROOM-1.4){ pushZ+=Math.sign(-pz)*.15; this.shake=.1; this.impactTimer=.4; this.impactLabel='WALL'; }
+    return{pushX,pushZ};
+  }
+
+  // ── Main update ──────────────────────────────────────────
+  update(dt){
+    const fwd  = (keys['w']?1:0)-(keys['s']?1:0);
+    const turn = (keys['d']?1:0)-(keys['a']?1:0);
+
+    // FK controls: only the currently active leg responds to arrows
+    const aLeg = this.activeLegIdx>=0 ? this.legs[this.activeLegIdx] : null;
+    if(aLeg){
+      aLeg.applyFK(dt,
+        keys['arrowup'],   keys['arrowdown'],
+        keys['arrowleft'], keys['arrowright']
+      );
+      // R = reset FK offsets (leg stays selected but returns to neutral)
+      if(keys['r']){
+        aLeg.resetFK();
+        keys['r'] = false;
+      }
+    }
+
+    // Body movement
+    this.vel    = damp(this.vel,    fwd*this.moveSpd, 5, dt);
+    this.rotVel = damp(this.rotVel, turn*76*DEG, 5, dt);
+    this.heading += this.rotVel*dt;
+    // Apply heading (Y) and Z tilt separately (euler order ZYX handles composition)
+    this.root.rotation.y = this.heading;
+    this.root.rotation.z = damp(this.root.rotation.z, this.targetTiltZ, 3.5, dt);
+    this.root.rotation.x = damp(this.root.rotation.x, this.targetTiltX + this.vel*0.012, 5, dt);
+
+    let dx = Math.sin(this.heading)*this.vel*dt + this.impVel.x*dt;
+    let dz = Math.cos(this.heading)*this.vel*dt + this.impVel.y*dt;
+    this.impVel.x = damp(this.impVel.x,0,9,dt);
+    this.impVel.y = damp(this.impVel.y,0,9,dt);
+
+    this.root.position.x+=dx; this.root.position.z+=dz;
+    const push=this.checkCollision();
+    this.root.position.x+=push.pushX; this.root.position.z+=push.pushZ;
+    this.root.position.x=clamp(this.root.position.x,-(ROOM-1.5),ROOM-1.5);
+    this.root.position.z=clamp(this.root.position.z,-(ROOM-1.5),ROOM-1.5);
+    this.root.position.y=damp(this.root.position.y,this.targetY,3,dt);
+
+    // Body shake
+    if(this.shake>.005){
+      this.root.position.x+=(Math.random()-.5)*this.shake;
+      this.root.position.y+=(Math.random()-.5)*this.shake*.35;
+      this.shake=damp(this.shake,0,14,dt);
+    }
+
+    // Camera head
+    this.camLightT+=dt*3;
+    this.camLight.material.emissiveIntensity=1.5+1.5*Math.sin(this.camLightT);
+    this.camHead.rotation.y=Math.sin(this.camLightT*.28)*.35;
+
+    // Gait phase
+    const isMoving=Math.abs(this.vel)>.08;
+    if(isMoving)
+      this.gaitT=(this.gaitT+dt*1.85*Math.abs(this.vel)/this.moveSpd)%1.0;
+
+    // ── BODY FOLLOWS TERRAIN + PLANTED FEET ─────────────────
+    raycaster.set(
+      new THREE.Vector3(this.root.position.x, 10, this.root.position.z), DOWN
+    );
+    const terrainHit = raycaster.intersectObjects(rubbleMeshes, false);
+    const terrainY = terrainHit.length>0 ? terrainHit[0].point.y : 0;
+
+    // Count only PLANTED locked feet (below body center = not being lifted)
+    let maxPlantedFoot = -999, plantedCount = 0;
+    this.legs.forEach(l=>{
+      if(l.fkLocked && l.footWorldPos.y < this.root.position.y - 0.4){
+        if(l.footWorldPos.y > maxPlantedFoot){
+          maxPlantedFoot = l.footWorldPos.y;
+        }
+        plantedCount++;
+      }
+    });
+
+    const baseRide = this.verticalMode ? 3.5 :
+                     (this.systemState==='CLIMBING' ? 2.7 : 2.0);
+
+    if(plantedCount >= 2 && maxPlantedFoot > terrainY + 0.15){
+      // Feet are planted on raised surface → lift body to follow
+      // Delta = how much higher than floor the feet are
+      const delta = maxPlantedFoot - terrainY;
+      this.targetY = terrainY + baseRide + delta * 0.7;
+    } else {
+      // Normal: ride above terrain
+      this.targetY = terrainY + baseRide;
+    }
+    // Safety clamp — never fly above 8 units
+    this.targetY = Math.min(this.targetY, 8.0);
+
+    // Raycasts + leg updates
+    this.legs.forEach(l=>{
+      l.updateRaycast();
+      if(this.verticalMode && !l.fkLocked){
+        // TRUE VERTICAL (Z-tilt 90°): after the robot body tilts sideways,
+        // legs with sideX > 0 (right side) are now pointing DOWN → stance
+        // legs with sideX < 0 (left side) are now pointing UP → fold for balance
+        if(l.sideX > 0.1){
+          // Bottom legs: spread out and down (they now face the ground)
+          l.coxaPivot.rotation.y  = damp(l.coxaPivot.rotation.y, 0, 4, dt);
+          l.femurPivot.rotation.x = damp(l.femurPivot.rotation.x, 35*DEG, 4, dt);
+          l.tibiaPivot.rotation.x = damp(l.tibiaPivot.rotation.x, -30*DEG, 4, dt);
+          l.phase = 'STANCE';
+        } else if(l.sideX < -0.1){
+          // Top legs: tuck close to body
+          l.coxaPivot.rotation.y  = damp(l.coxaPivot.rotation.y, 0, 4, dt);
+          l.femurPivot.rotation.x = damp(l.femurPivot.rotation.x, -55*DEG, 4, dt);
+          l.tibiaPivot.rotation.x = damp(l.tibiaPivot.rotation.x, 48*DEG, 4, dt);
+          l.phase = 'IDLE';
+        } else {
+          // Centre legs: splay horizontal for balance
+          l.coxaPivot.rotation.y  = damp(l.coxaPivot.rotation.y, 0, 4, dt);
+          l.femurPivot.rotation.x = damp(l.femurPivot.rotation.x, 10*DEG, 4, dt);
+          l.tibiaPivot.rotation.x = damp(l.tibiaPivot.rotation.x, -10*DEG, 4, dt);
+          l.phase = 'IDLE';
+        }
+      } else {
+        l.update(dt, this.gaitT, isMoving, this.vel, this.rotVel);
+      }
+    });
+
+    if(this.impactTimer>0) this.impactTimer-=dt;
+
+    this._updateHUD();
+  }
+
+  // ── HUD update ───────────────────────────────────────────
+  _updateHUD(){
+    const $=s=>document.getElementById(s);
+    $('h-mode').textContent  = this.systemState;
+    $('h-mode').className    = 'val '+(this.systemState==='CLIMBING'?'walk':'wheel');
+    $('h-spd').textContent   = Math.abs(this.vel).toFixed(1);
+    $('h-gait').textContent  = this.systemState==='CLIMBING'?'TRIPOD / FK':'WHEEL SPIN';
+    $('h-phase').textContent = this.gaitT.toFixed(2);
+    $('h-active').textContent= this.activeLegIdx>=0 ? `LEG ${this.activeLegIdx+1}` : 'NONE';
+    $('h-impact').textContent= this.impactTimer>0?this.impactLabel:'—';
+    $('h-impact').className  = 'val '+(this.impactTimer>0?'hit':'');
+    const aLeg=this.activeLegIdx>=0?this.legs[this.activeLegIdx]:null;
+    $('h-legctl').textContent= aLeg?`F:${(aLeg.fkFemurDeg/DEG).toFixed(0)}° T:${(aLeg.fkTibiaDeg/DEG).toFixed(0)}°`:'—';
+
+    // Leg status rows
+    const PHASE_COLORS={'SWING':'#ff9500','STANCE':'#00ff88','IDLE':'#1a3a55','MANUAL':'#aaff00'};
+    this.legs.forEach((l,i)=>{
+      const dot=$(`ldot${i}`);
+      const ph =$(`lphase${i}`);
+      const fkEl=$(`lfk${i}`);
+      const row =$(`lrow${i}`);
+
+      dot.style.background = l.blocked ? '#ff3300' : (PHASE_COLORS[l.phase]||'#333');
+      dot.style.boxShadow  = l.fkActive ? '0 0 6px #aaff00' : 'none';
+      ph.textContent = l.phase;
+      ph.style.color = PHASE_COLORS[l.phase]||'#888';
+
+      fkEl.textContent = l.fkActive ? `F${(l.fkFemurDeg/DEG).toFixed(0)}° T${(l.fkTibiaDeg/DEG).toFixed(0)}°` : '';
+      row.className = 'leg-row '+(l.fkActive?'active-highlight':'');
+
+      // Blocked warning
+      if(l.blocked) ph.textContent='BLOCKED!';
+    });
+  }
+}
+
+const robot = new Hexapod();
+
+// ════════════════════════════════════════════════════
+//  MINIMAP
+// ════════════════════════════════════════════════════
+const mapC  = document.getElementById('mapCanvas');
+const ctx2d = mapC.getContext('2d');
+const CW=170,CH=170,CX=CW/2,CY=CH/2,MAP_R=58;
+const legMapAngles=[30,90,150,210,270,330].map(a=>a*Math.PI/180);
+
+function drawMap(){
+  ctx2d.clearRect(0,0,CW,CH);
+  ctx2d.fillStyle='rgba(4,10,22,.92)';
+  ctx2d.fillRect(0,0,CW,CH);
+
+  // Octagon body outline (8 sides)
+  ctx2d.beginPath();
+  for(let i=0;i<8;i++){
+    const a=i*Math.PI/4+Math.PI/8;
+    const x=CX+Math.cos(a)*30,y=CY+Math.sin(a)*30;
+    i===0?ctx2d.moveTo(x,y):ctx2d.lineTo(x,y);
+  }
+  ctx2d.closePath();
+  ctx2d.strokeStyle='#1a4466';ctx2d.lineWidth=1.5;ctx2d.stroke();
+  ctx2d.fillStyle='rgba(20,60,120,.35)';ctx2d.fill();
+
+  // Direction arrow
+  const ax=CX+Math.cos(-robot.heading+Math.PI/2)*20;
+  const ay=CY+Math.sin(-robot.heading+Math.PI/2)*20;
+  ctx2d.beginPath();ctx2d.moveTo(CX,CY);ctx2d.lineTo(ax,ay);
+  ctx2d.strokeStyle='#00e5ff99';ctx2d.lineWidth=2;ctx2d.stroke();
+  ctx2d.beginPath();ctx2d.arc(ax,ay,3,0,Math.PI*2);
+  ctx2d.fillStyle='#00e5ff';ctx2d.fill();
+
+  // Legs
+  const PHASE_C={'SWING':'#ff9500','STANCE':'#00ff88','IDLE':'#1a3a55','MANUAL':'#aaff00'};
+  robot.legs.forEach((leg,i)=>{
+    const a=legMapAngles[i]-Math.PI/2;
+    const mx=CX+Math.cos(a)*MAP_R, my=CY+Math.sin(a)*MAP_R;
+    const bodyX=CX+Math.cos(a)*30, bodyY=CY+Math.sin(a)*30;
+
+    const col = leg.blocked ? '#ff3300' : (PHASE_C[leg.phase]||'#1a3a55');
+    const pulse = leg.phase==='SWING' ? 1.2+.2*Math.sin(Date.now()*.012) : 1;
+
+    // Pulse ring
+    if(leg.phase==='SWING'||leg.fkActive){
+      ctx2d.beginPath();ctx2d.arc(mx,my,9*pulse+3,0,Math.PI*2);
+      ctx2d.strokeStyle=col+'55';ctx2d.lineWidth=2.5;ctx2d.stroke();
+    }
+    // Connector
+    ctx2d.beginPath();ctx2d.moveTo(bodyX,bodyY);ctx2d.lineTo(mx,my);
+    ctx2d.strokeStyle=col+'77';ctx2d.lineWidth=1.5;ctx2d.stroke();
+    // Dot
+    ctx2d.beginPath();ctx2d.arc(mx,my,7*pulse,0,Math.PI*2);
+    ctx2d.fillStyle=col;ctx2d.fill();
+    // Active border
+    if(leg.fkActive){ctx2d.strokeStyle='#aaff00';ctx2d.lineWidth=2;ctx2d.stroke();}
+    // Label
+    ctx2d.font='bold 8px Courier New';
+    ctx2d.fillStyle='#fff';ctx2d.textAlign='center';ctx2d.textBaseline='middle';
+    ctx2d.fillText(i+1,mx,my);
+    // Ground height indicator (small bar)
+    if(leg.groundY>0.3){
+      const barH=Math.min(leg.groundY*4,12);
+      ctx2d.fillStyle='#ff6600aa';
+      ctx2d.fillRect(mx+7,my-barH/2,3,barH);
+    }
+  });
+
+  // Legend
+  ctx2d.font='8px Courier New';ctx2d.textAlign='left';ctx2d.textBaseline='top';
+  [['#00ff88','STANCE'],['#ff9500','SWING'],['#aaff00','MANUAL'],['#ffee44','LOCKED'],['#ff3300','BLOCKED']].forEach(([c,t],i)=>{
+    ctx2d.fillStyle=c;ctx2d.fillRect(5,CH-54+i*10,6,6);
+    ctx2d.fillStyle='#ffffff55';ctx2d.fillText(t,14,CH-55+i*10);
+  });
+}
+
+// ════════════════════════════════════════════════════
+//  CAMERA
+// ════════════════════════════════════════════════════
+const CAM_OFF=new THREE.Vector3(0,5.5,-12);
+let camYaw=0;
+
+function updateCamera(dt){
+  const q=new THREE.Quaternion()
+    .setFromAxisAngle(new THREE.Vector3(0,1,0),robot.heading+camYaw);
+  const off=CAM_OFF.clone().applyQuaternion(q);
+  if(robot.shake>.015){off.x+=(Math.random()-.5)*robot.shake*.35;}
+  camera.position.lerp(robot.root.position.clone().add(off),1-Math.exp(-7*dt));
+  camera.lookAt(robot.root.position.clone().add(new THREE.Vector3(0,1.7,0)));
+}
+
+// ════════════════════════════════════════════════════
+//  INPUT
+// ════════════════════════════════════════════════════
+const keys={};
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  keys[k]=true;
+  if(['1','2','3','4','5','6'].includes(k)){
+    const idx=parseInt(k)-1;
+    if(robot.systemState==='CLIMBING') robot.selectLeg(idx);
+    else showBanner('PRESS X FIRST','#ff3300');
+  }
+  if(k==='x') robot.toggleMode();
+  if(k==='v') robot.toggleVertical();
+  // R = release ACTIVE leg back to auto gait
+  if(k==='r'){
+    if(robot.activeLegIdx>=0){
+      robot.legs[robot.activeLegIdx].releaseLock();
+      robot.activeLegIdx=-1;
+    }
+    keys['r']=false;
+  }
+  if(['arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+
+let mDown=false,mLast=0;
+window.addEventListener('mousedown',e=>{mDown=true;mLast=e.clientX;});
+window.addEventListener('mouseup',()=>mDown=false);
+window.addEventListener('mousemove',e=>{
+  if(!mDown)return;
+  camYaw+=(e.clientX-mLast)*.32*DEG;
+  mLast=e.clientX;
+});
+
+// ════════════════════════════════════════════════════
+//  BANNER
+// ════════════════════════════════════════════════════
+function showBanner(txt,col){
+  const b=document.getElementById('bar');
+  b.textContent=txt;b.style.color=col;b.style.opacity='1';
+  clearTimeout(b._t);b._t=setTimeout(()=>b.style.opacity='0',1600);
+}
+
+// ════════════════════════════════════════════════════
+//  MODEL SCENE — clone robot root into model scene
+// ════════════════════════════════════════════════════
+// We clone the live robot.root into the model scene after construction
+let modelRobot = null;
+function buildModelRobot(){
+  if(modelRobot){ modelScene.remove(modelRobot); }
+  modelRobot = robot.root.clone(true);
+  modelRobot.position.set(0,-2.2,0);
+  modelRobot.rotation.set(0,0,0);
+  modelScene.add(modelRobot);
+}
+
+// ════════════════════════════════════════════════════
+//  MODEL ORBIT INPUT
+// ════════════════════════════════════════════════════
+const modelPanelEl = document.getElementById('modelPanel');
+let modelOrbitYaw = 0.3, modelOrbitPitch = 0.35, modelOrbitDist = 7;
+let mMouseDown=false, mMouseLX=0, mMouseLY=0;
+
+modelPanelEl.addEventListener('mousedown', e=>{ mMouseDown=true; mMouseLX=e.clientX; mMouseLY=e.clientY; });
+window.addEventListener('mouseup', ()=>mMouseDown=false);
+window.addEventListener('mousemove', e=>{
+  if(!mMouseDown || !splitMode) return;
+  const dx=(e.clientX-mMouseLX)*0.008, dy=(e.clientY-mMouseLY)*0.008;
+  modelOrbitYaw   += dx;
+  modelOrbitPitch  = Math.max(-0.1, Math.min(1.2, modelOrbitPitch+dy));
+  mMouseLX=e.clientX; mMouseLY=e.clientY;
+});
+modelPanelEl.addEventListener('wheel', e=>{
+  modelOrbitDist = Math.max(3, Math.min(14, modelOrbitDist + e.deltaY*0.01));
+});
+
+// ════════════════════════════════════════════════════
+//  LOOP
+// ════════════════════════════════════════════════════
+let last=performance.now();
+(function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now(),dt=Math.min((now-last)/1000,.05);last=now;
+
+  robot.update(dt);
+  updateCamera(dt);
+  drawMap();
+  renderer.render(scene,camera);
+
+  // Model viewer
+  if(splitMode){
+    // Auto-rotate + orbit camera
+    modelOrbitYaw += dt*0.25;
+    const cy = Math.cos(modelOrbitPitch), sy = Math.sin(modelOrbitPitch);
+    const cx = Math.cos(modelOrbitYaw),   sx = Math.sin(modelOrbitYaw);
+    modelCamera.position.set(
+      cx*cy*modelOrbitDist,
+      sy*modelOrbitDist + 0.5,
+      sx*cy*modelOrbitDist
+    );
+    modelCamera.lookAt(0,0,0);
+
+    // Sync model robot pose from live robot
+    if(modelRobot){
+      // Copy leg joint rotations so model shows current pose
+      const src = robot.root; const dst = modelRobot;
+      // Recursively sync quaternions
+      src.traverse((s)=>{
+        dst.traverse((d)=>{
+          if(d.name===s.name && s.name!=='') d.quaternion.copy(s.quaternion);
+        });
+      });
+    }
+    modelRenderer.render(modelScene, modelCamera);
+  }
+})();
+
+// Build model robot after everything is constructed
+setTimeout(buildModelRobot, 100);
+</script>
+</body>
+</html>
