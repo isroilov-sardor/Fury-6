@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HEXAFORGE — 3D Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #01010a;
+    --panel:    #050510;
+    --panel2:   #08081a;
+    --border:   #111128;
+    --borderB:  #1e1e42;
+    --gold:     #c9a84c;
+    --goldL:    #e8cc7a;
+    --goldD:    #3e2e0a;
+    --goldGlow: #c9a84c44;
+    --text:     #ccd0ee;
+    --muted:    #32324e;
+    --mutedL:   #5a5a88;
+    --green:    #1eff96;
+    --red:      #ff2255;
+    --blue:     #2299ff;
+    --cyan:     #00ddc8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    height: 48px;
+    background: linear-gradient(90deg, #03030e 0%, #06061a 50%, #03030e 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 0;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
+  }
+  #topbar .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 17px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-shadow: 0 0 22px var(--goldGlow);
+    margin-right: 30px;
+    white-space: nowrap;
+  }
+  #topbar .logo span { font-size: 9px; letter-spacing: 3px; color: var(--muted); display: block; margin-top: -3px; }
+
+  .top-divider { width: 1px; height: 26px; background: var(--border); margin: 0 10px; }
+
+  .top-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--mutedL);
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.13s;
+    white-space: nowrap;
+  }
+  .top-btn:hover { border-color: var(--borderB); color: var(--text); }
+  .top-btn.active { border-color: var(--goldD); color: var(--gold); background: #0a0a20; }
+  .top-btn.danger:hover { border-color: #2a0a14; color: var(--red); }
+
+  .top-mode-group { display: flex; gap: 2px; align-items: center; background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
+  .mode-btn {
+    background: transparent; border: 1px solid transparent;
+    color: var(--mutedL); font-family: 'Space Mono', monospace; font-size: 8px;
+    letter-spacing: 1.2px; padding: 4px 10px; cursor: pointer; border-radius: 2px;
+    transition: all 0.12s; display: flex; align-items: center; gap: 5px;
+  }
+  .mode-btn.active { background: #0d0d28; border-color: var(--goldD); color: var(--gold); }
+  .mode-btn:hover:not(.active) { color: var(--text); }
+  .mode-icon { font-size: 13px; }
+
+  .top-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-dot.green { background: var(--green); box-shadow: 0 0 7px var(--green); }
+  .status-dot.gold  { background: var(--gold);  box-shadow: 0 0 7px var(--goldGlow); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── MAIN LAYOUT ── */
+  #workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    width: 230px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    border-bottom: 1px solid var(--border);
+    padding: 11px 12px;
+  }
+  .section-label {
+    font-size: 6.5px;
+    letter-spacing: 3px;
+    color: var(--mutedL);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Upload Zone */
+  #upload-zone {
+    border: 1px dashed var(--borderB);
+    border-radius: 4px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--mutedL);
+    font-size: 8px;
+    letter-spacing: 1px;
+  }
+  #upload-zone:hover, #upload-zone.drag-over {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--goldD)22;
+  }
+  #upload-zone .upload-icon { font-size: 22px; margin-bottom: 5px; }
+  #upload-zone .fmt-tags { display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
+  .fmt-tag {
+    font-size: 7px; letter-spacing: 1px; padding: 2px 6px;
+    border-radius: 2px; border: 1px solid;
+  }
+  .fmt-tag.ok  { border-color: #1a3a22; color: var(--green); }
+  .fmt-tag.wip { border-color: #3a2a10; color: var(--gold); }
+  .fmt-tag.no  { border-color: #2a1018; color: var(--red);  opacity: 0.6; }
+
+  /* Primitives grid */
+  #prim-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .prim-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--mutedL);
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    letter-spacing: 0.5px;
+    padding: 7px 2px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.12s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .prim-btn .pi { font-size: 15px; }
+  .prim-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--goldD)22; }
+
+  /* Scene list */
+  #scene-scroll { flex: 1; overflow-y: auto; padding: 8px 10px; }
+  .scene-item {
+    padding: 5px 8px;
+    margin-bottom: 3px;
+    border-radius: 3px;
+    font-size: 9px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.1s;
+    color: var(--mutedL);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .scene-item:hover { color: var(--text); background: #0a0a1e; }
+  .scene-item.selected {
+    background: #0c0c28;
+    border-color: var(--goldD);
+    color: var(--text);
+  }
+  .scene-item.selected .item-dot { background: var(--gold); box-shadow: 0 0 5px var(--gold); }
+  .item-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .item-label { overflow: hidden; text-overflow: ellipsis; }
+
+  /* Visibility toggle */
+  .vis-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    flex-shrink: 0;
+    padding: 0 2px;
+    transition: color 0.1s;
+  }
+  .vis-btn:hover { color: var(--text); }
+
+  /* Delete */
+  #del-btn {
+    margin: 8px 10px;
+    padding: 7px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.12s;
+    width: calc(100% - 20px);
+  }
+  #del-btn:hover:not(:disabled) { border-color: #2a0a18; color: var(--red); background: #1a0508; }
+  #del-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* ── VIEWPORT ── */
+  #viewport {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  #canvas-mount { width: 100%; height: 100%; }
+
+  /* Viewport overlays */
+  .vp-overlay {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #vp-top-left {
+    top: 14px; left: 14px;
+  }
+  #vp-bottom-left {
+    bottom: 16px; left: 16px;
+    display: flex; gap: 14px;
+  }
+  #vp-bottom-right {
+    bottom: 16px; right: 14px;
+  }
+  #vp-center-top {
+    top: 14px; left: 50%; transform: translateX(-50%);
+    pointer-events: auto;
+  }
+  .vp-label { font-size: 7px; letter-spacing: 2.5px; color: var(--mutedL); }
+  .vp-sub   { font-size: 6.5px; letter-spacing: 1.5px; color: var(--muted); margin-top: 3px; }
+  .axis-tag { font-size: 9px; letter-spacing: 1px; font-weight: 700; }
+
+  .hint-bar {
+    background: rgba(1,1,10,0.88);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 5px 14px;
+    font-size: 7.5px;
+    letter-spacing: 1px;
+    color: var(--mutedL);
+    backdrop-filter: blur(4px);
+  }
+
+  .badge {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    background: rgba(1,1,10,0.88);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 10px;
+    backdrop-filter: blur(4px);
+  }
+  .badge.green { color: var(--green); border-color: #112a1e; }
+  .badge.gold  { color: var(--gold);  border-color: var(--goldD); }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    width: 275px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Tabs */
+  #r-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .r-tab {
+    flex: 1;
+    padding: 10px 5px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 7.5px;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .r-tab.active { color: var(--gold); border-bottom-color: var(--gold); background: var(--panel2); }
+  .r-tab:hover:not(.active) { color: var(--text); }
+  .r-tab-icon { font-size: 12px; }
+
+  /* Right panel content */
+  #r-content { flex: 1; overflow-y: auto; padding: 12px 14px; }
+
+  .r-sec {
+    font-size: 6.5px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    margin-top: 14px;
+  }
+  .r-sec:first-child { margin-top: 0; }
+
+  /* Num grid */
+  .num-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 4px; }
+  .num-field label { font-size: 6.5px; color: var(--goldD); letter-spacing: 1px; display: block; margin-bottom: 3px; }
+  .num-field input {
+    width: 100%;
+    padding: 4px 6px;
+    background: #03030c;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 8.5px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.12s;
+  }
+  .num-field input:focus { border-color: var(--goldD); }
+
+  /* Scale quick btns */
+  .scale-btns { display: flex; gap: 5px; margin-top: 8px; }
+  .scale-btn {
+    flex: 1; padding: 5px; background: transparent;
+    border: 1px solid var(--border); color: var(--mutedL);
+    font-family: 'Space Mono', monospace; font-size: 8px;
+    cursor: pointer; border-radius: 3px; transition: all 0.12s;
+  }
+  .scale-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* Leg selector */
+  .leg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .leg-btn {
+    padding: 6px 4px; text-align: center; background: transparent;
+    border: 1px solid var(--border); color: var(--mutedL);
+    font-family: 'Space Mono', monospace; font-size: 8.5px;
+    cursor: pointer; border-radius: 3px;
+    transition: all 0.12s; letter-spacing: 0.5px;
+  }
+  .leg-btn.active { background: #0d0d28; border-color: var(--goldD); color: var(--gold); }
+  .leg-btn:hover:not(.active) { border-color: var(--borderB); color: var(--text); }
+
+  /* Joint slider */
+  .joint-row { margin-bottom: 13px; }
+  .joint-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .joint-label { font-size: 7.5px; color: var(--goldL); letter-spacing: 0.8px; }
+  .joint-val { font-size: 7px; color: var(--mutedL); font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    width: 100%; height: 3px; cursor: grab;
+    accent-color: var(--gold); appearance: none; background: transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px; background: linear-gradient(90deg, var(--gold) 0%, var(--borderB) 0%);
+    border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--gold);
+    margin-top: -3.5px; cursor: grab;
+    box-shadow: 0 0 6px var(--goldGlow);
+  }
+  input[type=range]:active { cursor: grabbing; }
+
+  /* Anim buttons */
+  .anim-btn {
+    width: 100%; padding: 8px; background: transparent;
+    border: 1px solid var(--border); color: var(--mutedL);
+    font-family: 'Space Mono', monospace; font-size: 8.5px;
+    cursor: pointer; border-radius: 3px; letter-spacing: 1px;
+    transition: all 0.13s; margin-bottom: 5px;
+  }
+  .anim-btn.walk { border-color: #112a1a; color: var(--green); }
+  .anim-btn:hover { border-color: var(--borderB); color: var(--text); }
+
+  /* Tip box */
+  .tip-box {
+    margin-top: 14px; padding: 10px 12px;
+    background: #05050e; border: 1px solid var(--border);
+    border-radius: 3px; font-size: 8px; color: var(--mutedL); line-height: 1.9;
+  }
+  .tip-box .tip-key { color: var(--goldL); }
+
+  /* Info rows */
+  .info-row { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--mutedL); padding: 4px 0; border-bottom: 1px solid #09091a; }
+  .info-val { color: var(--text); }
+  .info-val.green { color: var(--green); }
+  .info-val.gold  { color: var(--gold); }
+
+  /* Status bar */
+  #statusbar {
+    height: 30px; padding: 0 15px;
+    background: #02020a; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 7px; letter-spacing: 1.5px; color: var(--muted);
+    flex-shrink: 0;
+  }
+  .status-item { display: flex; align-items: center; gap: 6px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 50px 20px; }
+  .empty-icon { font-size: 38px; opacity: 0.1; margin-bottom: 12px; }
+  .empty-text { font-size: 8.5px; color: var(--mutedL); line-height: 1.9; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #181832; border-radius: 2px; }
+
+  /* Loading screen */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; gap: 22px;
+  }
+  #loading .l-logo { font-family: 'Orbitron', monospace; font-weight: 900; font-size: 22px; letter-spacing: 6px; color: var(--gold); text-shadow: 0 0 30px var(--goldGlow); }
+  #loading .l-sub  { font-size: 8px; letter-spacing: 4px; color: var(--muted); }
+  .loader-dots { display: flex; gap: 7px; }
+  .loader-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--gold); opacity: 0.3;
+    animation: ldot 1.3s infinite ease-in-out;
+    box-shadow: 0 0 8px var(--goldGlow);
+  }
+  .loader-dot:nth-child(2) { animation-delay: 0.22s; }
+  .loader-dot:nth-child(3) { animation-delay: 0.44s; }
+  @keyframes ldot { 0%,60%,100%{transform:scale(0.6);opacity:0.3} 30%{transform:scale(1.2);opacity:1} }
+
+  /* tooltip */
+  .tooltip-active { cursor: grab !important; }
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading">
+  <div class="l-logo">HEXAFORGE</div>
+  <div class="loader-dots">
+    <div class="loader-dot"></div>
+    <div class="loader-dot"></div>
+    <div class="loader-dot"></div>
+  </div>
+  <div class="l-sub">INITIALISING 3D ENGINE</div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">HEXAFORGE <span>3D STUDIO</span></div>
+
+  <div class="top-divider"></div>
+
+  <div class="top-mode-group">
+    <button class="mode-btn active" id="btn-translate" onclick="setTMode('translate')">
+      <span class="mode-icon">↔</span> G MOVE
+    </button>
+    <button class="mode-btn" id="btn-rotate" onclick="setTMode('rotate')">
+      <span class="mode-icon">↻</span> R ROTATE
+    </button>
+    <button class="mode-btn" id="btn-scale" onclick="setTMode('scale')">
+      <span class="mode-icon">⤡</span> S SCALE
+    </button>
+  </div>
+
+  <div class="top-divider"></div>
+
+  <button class="top-btn" id="btn-wireframe" onclick="toggleWireframe()">⊟ WIREFRAME</button>
+  <button class="top-btn" id="btn-edges" onclick="toggleEdges()">⬡ EDGES</button>
+  <button class="top-btn" onclick="resetCamera()">⌂ RESET VIEW</button>
+
+  <div class="top-right">
+    <div id="walk-badge" style="display:none">
+      <div class="badge green">⬤ WALKING</div>
+    </div>
+    <div class="status-item">
+      <div class="status-dot green"></div>
+      <span style="font-size:7px;letter-spacing:2px;color:var(--mutedL)">WEBGL ACTIVE</span>
+    </div>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div id="workspace">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <!-- File Upload -->
+    <div class="panel-section">
+      <div class="section-label">⬆ IMPORT MODEL</div>
+      <div id="upload-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <div class="upload-icon">⬆</div>
+        <div>CLICK OR DRAG &amp; DROP</div>
+        <div class="fmt-tags">
+          <span class="fmt-tag ok">GLB</span>
+          <span class="fmt-tag ok">GLTF</span>
+          <span class="fmt-tag wip">FBX</span>
+          <span class="fmt-tag no">USDZ</span>
+        </div>
+      </div>
+      <input id="file-input" type="file" accept=".glb,.gltf" style="display:none" onchange="handleFile(this.files[0])"/>
+    </div>
+
+    <!-- Primitives -->
+    <div class="panel-section">
+      <div class="section-label">⊞ ADD PRIMITIVE</div>
+      <div id="prim-grid">
+        <button class="prim-btn" onclick="addPrimitive('sphere')">   <span class="pi">○</span> SPHERE   </button>
+        <button class="prim-btn" onclick="addPrimitive('box')">      <span class="pi">□</span> BOX      </button>
+        <button class="prim-btn" onclick="addPrimitive('pyramid')">  <span class="pi">△</span> PYRAMID  </button>
+        <button class="prim-btn" onclick="addPrimitive('cylinder')"> <span class="pi">⌀</span> CYLINDER </button>
+        <button class="prim-btn" onclick="addPrimitive('cone')">     <span class="pi">▽</span> CONE     </button>
+        <button class="prim-btn" onclick="addPrimitive('torus')">    <span class="pi">⊙</span> TORUS    </button>
+      </div>
+    </div>
+
+    <!-- Scene Hierarchy -->
+    <div class="section-label" style="padding:10px 12px 0; font-size:6.5px; letter-spacing:3px; color:var(--mutedL)">◈ SCENE HIERARCHY</div>
+    <div id="scene-scroll"></div>
+
+    <!-- Delete -->
+    <button id="del-btn" disabled onclick="deleteSelected()">✕  DELETE SELECTED</button>
+
+  </div>
+
+  <!-- VIEWPORT -->
+  <div id="viewport">
+    <div id="canvas-mount"></div>
+
+    <!-- Overlays -->
+    <div class="vp-overlay" id="vp-top-left">
+      <div class="vp-label">PERSPECTIVE  ·  WebGL 2</div>
+      <div class="vp-sub">Drag to orbit  ·  Scroll zoom  ·  Click to select  ·  Drag object to transform</div>
+    </div>
+
+    <div class="vp-overlay" id="vp-bottom-left">
+      <span class="axis-tag" style="color:#ff2255">■ X</span>
+      <span class="axis-tag" style="color:#22ee77">■ Y</span>
+      <span class="axis-tag" style="color:#2288ff">■ Z</span>
+    </div>
+
+    <div class="vp-overlay" id="vp-bottom-right">
+      <div class="badge gold" id="sel-badge" style="display:none"></div>
+    </div>
+
+    <div class="vp-overlay hint-bar" id="vp-hint" style="bottom:50px;left:50%;transform:translateX(-50%);display:none">
+      Drag on object to transform · Use toolbar or G/R/S keys
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+    <div id="r-tabs">
+      <button class="r-tab" id="tab-props"   onclick="setTab('props')">   <span class="r-tab-icon">◈</span> PROPS   </button>
+      <button class="r-tab active" id="tab-robot" onclick="setTab('robot')"><span class="r-tab-icon">🤖</span> ROBOT   </button>
+      <button class="r-tab" id="tab-info"    onclick="setTab('info')">    <span class="r-tab-icon">◎</span> INFO    </button>
+    </div>
+    <div id="r-content"></div>
+
+    <!-- Status bar -->
+    <div id="statusbar">
+      <span id="status-sel">— nothing selected —</span>
+      <span id="status-mode" style="color:var(--gold)">↔ MOVE</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ======================================================================
+     SCRIPTS
+====================================================================== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  GLOBALS
+// ══════════════════════════════════════════════════════════════════════
+let scene, camera, renderer, transformCtrl, raycaster, animId;
+let objects = [];       // { id, name, type, mesh, edges }
+let selectedId = null;
+let tMode = 'translate';
+let showEdges = true;
+let wireframeOn = false;
+let isWalking = false, walkAnimId = null;
+let hexLegs = [];
+let activeLeg = 0;
+let legAngles = Array.from({length:6},(_,i)=>{const s=i%2===0?-1:1;return{coxa:0,femur:s*-0.22,tibia:s*0.48};});
+let currentTab = 'robot';
+let orbitActive = false, orbitPrev = {x:0,y:0};
+let orbitAngle = {phi:1.08, theta:0.55, radius:14};
+
+// ══════════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  // Wait for fonts + scripts
+  setTimeout(initStudio, 600);
+});
+
+function initStudio() {
+  const mount = document.getElementById('canvas-mount');
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x01010a);
+  scene.fog = new THREE.FogExp2(0x01010a, 0.035);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(52, mount.clientWidth / mount.clientHeight, 0.05, 500);
+  updateCamera();
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.3;
+  mount.appendChild(renderer.domElement);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0x1a2244, 0.8));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+  sun.position.set(12, 18, 10); sun.castShadow = true;
+  sun.shadow.mapSize.setScalar(2048);
+  sun.shadow.camera.left = sun.shadow.camera.bottom = -20;
+  sun.shadow.camera.right = sun.shadow.camera.top   = 20;
+  sun.shadow.camera.far = 80;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x2244aa, 0.5);
+  fill.position.set(-10, 5, -8); scene.add(fill);
+  const rim = new THREE.PointLight(0xc9a84c, 2.5, 25);
+  rim.position.set(0, 10, -8); scene.add(rim);
+  const under = new THREE.PointLight(0x0033ff, 0.4, 10);
+  under.position.set(0, -0.5, 0); scene.add(under);
+
+  // Ground plane (receives shadows, blocks objects going through)
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x020208, roughness: 1, metalness: 0 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;           // ← ground is at Y = 0
+  ground.receiveShadow = true;
+  ground.name = '_ground';
+  scene.add(ground);
+
+  // Grid  (sits exactly on Y=0)
+  const grid = new THREE.GridHelper(80, 80, 0x0c0c28, 0x080818);
+  grid.position.y = 0.001;
+  scene.add(grid);
+
+  // Raycaster
+  raycaster = new THREE.Raycaster();
+
+  // TransformControls
+  transformCtrl = new THREE.TransformControls(camera, renderer.domElement);
+  transformCtrl.setMode('translate');
+  transformCtrl.setSpace('world');
+  transformCtrl.addEventListener('change', () => {
+    if (transformCtrl.object) syncTransformPanel(transformCtrl.object);
+  });
+  transformCtrl.addEventListener('dragging-changed', e => {
+    orbitActive = false; // prevent orbit while dragging gizmo
+  });
+  scene.add(transformCtrl);
+
+  // Hexapod
+  buildHexapod();
+
+  // Events
+  renderer.domElement.addEventListener('pointerdown',  onPointerDown);
+  renderer.domElement.addEventListener('pointermove',  onPointerMove);
+  renderer.domElement.addEventListener('pointerup',    onPointerUp);
+  renderer.domElement.addEventListener('wheel',        onWheel, {passive:false});
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('resize',  onResize);
+
+  // Render loop
+  (function loop() { animId = requestAnimationFrame(loop); renderer.render(scene, camera); })();
+
+  // Hide loading
+  document.getElementById('loading').style.display = 'none';
+
+  renderSceneList();
+  setTab('robot');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CAMERA
+// ══════════════════════════════════════════════════════════════════════
+function updateCamera() {
+  const { phi, theta, radius } = orbitAngle;
+  camera.position.set(
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
+  camera.lookAt(0, 0, 0);
+}
+
+function resetCamera() {
+  orbitAngle = { phi: 1.08, theta: 0.55, radius: 14 };
+  updateCamera();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  HEXAPOD BUILDER
+// ══════════════════════════════════════════════════════════════════════
+function buildHexapod() {
+  const root = new THREE.Group(); root.name = 'Hexapod';
+
+  const mat  = (hex, m=0.7, r=0.3) => new THREE.MeshStandardMaterial({color:hex,metalness:m,roughness:r});
+  const emit = (hex) => new THREE.MeshStandardMaterial({color:hex,emissive:hex,emissiveIntensity:1.4});
+
+  // Body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.0,0.48,1.22), mat(0x192c58));
+  body.castShadow = true; body.name = 'Body'; root.add(body);
+  addEdgesTo(body, 0x2244aa);
+
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(2.3,0.07,0.98), mat(0x1e388a));
+  plate.position.y = 0.275; root.add(plate);
+
+  [-0.29,0.29].forEach(z=>{
+    const s = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.045,0.065),mat(0x2244cc,0.9,0.15));
+    s.position.set(0,0.32,z); root.add(s);
+  });
+
+  // Head
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65,0.40,0.74),mat(0x192c58));
+  head.position.set(1.82,0.02,0); head.name='Head'; root.add(head);
+  addEdgesTo(head, 0x2244aa);
+
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.17,0.57),mat(0x00ccaa,0.95,0.05));
+  visor.position.set(2.14,0.08,0); root.add(visor);
+
+  [-0.21,0.21].forEach(z=>{
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.076,12,12),emit(0x00ffcc));
+    eye.position.set(2.15,0.17,z); root.add(eye);
+    const g = new THREE.PointLight(0x00ffcc,0.6,1.8); g.position.copy(eye.position); root.add(g);
+  });
+
+  [-0.18,0.18].forEach(z=>{
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,0.62,6),mat(0x2255bb));
+    stem.position.set(1.98,0.56,z); root.add(stem);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.042,8,8),emit(0xff5520));
+    tip.position.set(1.98,0.88,z); root.add(tip);
+  });
+
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.26,0.52,8),mat(0x192c58));
+  tail.rotation.z=-Math.PI/2; tail.position.set(-1.76,0,0); root.add(tail);
+
+  // Legs
+  hexLegs = [];
+  const legDefs=[{s:-1,z:-0.48,i:0},{s:1,z:-0.48,i:1},{s:-1,z:0,i:2},{s:1,z:0,i:3},{s:-1,z:0.48,i:4},{s:1,z:0.48,i:5}];
+
+  legDefs.forEach(({s,z,i})=>{
+    const cx = new THREE.Group(); cx.name=`CoxaPivot${i}`; cx.position.set(s*1.5,0,z);
+
+    const cxM = new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.48,8),mat(0x1e4488));
+    cxM.rotation.z=Math.PI/2; cxM.position.x=s*0.24; cxM.castShadow=true;
+    cx.add(cxM); addEdgesTo(cxM, 0x3366aa);
+
+    const cJnt = new THREE.Mesh(new THREE.SphereGeometry(0.082,8,8),mat(0x3377cc,0.9,0.2));
+    cJnt.position.x=s*0.48; cx.add(cJnt);
+
+    const fm = new THREE.Group(); fm.name=`FemurPivot${i}`;
+    fm.position.x=s*0.48; fm.rotation.z=s*-0.22;
+
+    const fmM = new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.74,8),mat(0x183c7a));
+    fmM.rotation.z=Math.PI/2; fmM.position.x=s*0.37; fmM.castShadow=true;
+    fm.add(fmM); addEdgesTo(fmM, 0x2255aa);
+
+    const fJnt = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8),mat(0x3377cc,0.9,0.2));
+    fJnt.position.x=s*0.74; fm.add(fJnt);
+
+    const tb = new THREE.Group(); tb.name=`TibiaPivot${i}`;
+    tb.position.x=s*0.74; tb.rotation.z=s*0.48;
+
+    const tbM = new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.032,0.80,8),mat(0x122855));
+    tbM.rotation.z=Math.PI/2; tbM.position.x=s*0.40; tbM.castShadow=true;
+    tb.add(tbM); addEdgesTo(tbM, 0x1e3a77);
+
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8),new THREE.MeshStandardMaterial({color:0x00bbaa,metalness:0.8,roughness:0.2}));
+    foot.position.x=s*0.80; tb.add(foot);
+
+    fm.add(tb); cx.add(fm); root.add(cx);
+    hexLegs.push({coxaPivot:cx, femurPivot:fm, tibiaPivot:tb, side:s, idx:i});
+  });
+
+  // Place hexapod so bottom sits at Y=0 (on ground)
+  root.scale.setScalar(0.78);
+  // Compute bounding box after scale
+  root.position.set(0,0,0);
+  const bbox = new THREE.Box3().setFromObject(root);
+  const minY = bbox.min.y;
+  root.position.y = -minY + 0.01; // lift so feet touch ground
+
+  scene.add(root);
+  const obj = {id:'hexapod', name:'Hexapod', type:'hexapod', mesh:root, edges:null, visible:true};
+  objects.push(obj);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  EDGE HELPERS
+// ══════════════════════════════════════════════════════════════════════
+function addEdgesTo(mesh, color=0x888888) {
+  if (!mesh.geometry) return;
+  const edgesGeo = new THREE.EdgesGeometry(mesh.geometry);
+  const edgesMat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+  const lines = new THREE.LineSegments(edgesGeo, edgesMat);
+  lines.name = '_edges';
+  lines.visible = showEdges;
+  mesh.add(lines);
+}
+
+function attachEdgesGroup(mesh, color=0x888888) {
+  // For imported models or top-level primitives
+  const edgesGeo = new THREE.EdgesGeometry(mesh.geometry);
+  const edgesMat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.65, linewidth: 1 });
+  const lines = new THREE.LineSegments(edgesGeo, edgesMat);
+  lines.name = '_edges';
+  lines.visible = showEdges;
+  mesh.add(lines);
+  return lines;
+}
+
+function toggleEdges() {
+  showEdges = !showEdges;
+  const btn = document.getElementById('btn-edges');
+  btn.classList.toggle('active', showEdges);
+  // toggle all edge objects in scene
+  scene.traverse(obj => {
+    if (obj.name === '_edges') obj.visible = showEdges;
+  });
+}
+
+function toggleWireframe() {
+  wireframeOn = !wireframeOn;
+  const btn = document.getElementById('btn-wireframe');
+  btn.classList.toggle('active', wireframeOn);
+  scene.traverse(obj => {
+    if (obj.isMesh && obj.material && obj.name !== '_ground') {
+      if (Array.isArray(obj.material)) obj.material.forEach(m=>m.wireframe=wireframeOn);
+      else obj.material.wireframe = wireframeOn;
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  ADD PRIMITIVE
+// ══════════════════════════════════════════════════════════════════════
+function addPrimitive(type) {
+  const col = new THREE.Color().setHSL(Math.random(), 0.65, 0.52);
+  const mat = new THREE.MeshStandardMaterial({color:col, metalness:0.3, roughness:0.52});
+  const geoMap = {
+    sphere:   new THREE.SphereGeometry(0.85, 36, 36),
+    box:      new THREE.BoxGeometry(1.5, 1.5, 1.5),
+    pyramid:  new THREE.ConeGeometry(1.1, 2.1, 4),
+    cylinder: new THREE.CylinderGeometry(0.75, 0.75, 1.9, 28),
+    cone:     new THREE.ConeGeometry(0.85, 2.1, 28),
+    torus:    new THREE.TorusGeometry(0.85, 0.32, 18, 64),
+  };
+  const geo = geoMap[type]; if (!geo) return;
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = mesh.receiveShadow = true;
+  mesh.name = type[0].toUpperCase() + type.slice(1);
+
+  // Place at random X/Z, but correctly above ground (Y=0)
+  const randX = (Math.random()-0.5)*12;
+  const randZ = (Math.random()-0.5)*12;
+  mesh.position.set(randX, 0, randZ);
+  // Compute bottom of mesh and lift to ground
+  const bbox = new THREE.Box3().setFromObject(mesh);
+  mesh.position.y = -bbox.min.y;   // ← sits exactly on ground
+
+  scene.add(mesh);
+
+  // Add edges
+  const edges = attachEdgesGroup(mesh, 0xffffff);
+
+  const id = type+'_'+Date.now();
+  objects.push({id, name:mesh.name, type, mesh, edges, visible:true});
+  renderSceneList();
+  selectObject(id);
+  setTab('props');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  FILE IMPORT
+// ══════════════════════════════════════════════════════════════════════
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['glb','gltf'].includes(ext)) {
+    alert('.' + ext + ' is not supported.\n\n✅ GLB  - self-contained, works best\n✅ GLTF - works fine\n🚧 FBX  - coming soon');
+    return;
+  }
+  // Use createObjectURL directly on the File object — no FileReader needed.
+  // The old FileReader + Blob approach caused the ProgressEvent error.
+  const url = URL.createObjectURL(file);
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    url,
+    function(gltf) {
+      URL.revokeObjectURL(url);
+      const model = gltf.scene;
+      // Auto-scale to fit 4.5 units
+      const b1 = new THREE.Box3().setFromObject(model);
+      const sz = b1.getSize(new THREE.Vector3());
+      const maxD = Math.max(sz.x, sz.y, sz.z) || 1;
+      model.scale.setScalar(4.5 / maxD);
+      // Center X/Z, place bottom at Y=0
+      const b2 = new THREE.Box3().setFromObject(model);
+      const ct = b2.getCenter(new THREE.Vector3());
+      model.position.x = -ct.x;
+      model.position.z = -ct.z;
+      const b3 = new THREE.Box3().setFromObject(model);
+      model.position.y = -b3.min.y + 0.01;
+      // Shadows + edges
+      model.traverse(function(c) {
+        c.castShadow = c.receiveShadow = true;
+        if (c.isMesh && c.geometry) addEdgesTo(c, 0x8899ff);
+        if (wireframeOn && c.isMesh && c.material) {
+          var mats = Array.isArray(c.material) ? c.material : [c.material];
+          mats.forEach(function(m){ m.wireframe = true; });
+        }
+      });
+      scene.add(model);
+      var id   = 'model_' + Date.now();
+      var name = file.name.replace(/\.[^.]+$/, '');
+      objects.push({id:id, name:name, type:'model', mesh:model, edges:null, visible:true});
+      renderSceneList();
+      selectObject(id);
+      setTab('props');
+    },
+    undefined,
+    function(err) {
+      URL.revokeObjectURL(url);
+      console.error('GLTF load error:', err);
+      alert('Could not load "' + file.name + '".\n\nMake sure it is a valid GLB or GLTF file.\nGLB is self-contained and most reliable.');
+    }
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SELECTION
+// ══════════════════════════════════════════════════════════════════════
+function selectObject(id) {
+  selectedId = id;
+  const obj = objects.find(o=>o.id===id);
+
+  if (obj?.mesh) {
+    transformCtrl.attach(obj.mesh);
+  } else {
+    transformCtrl.detach();
+  }
+
+  // Update UI
+  renderSceneList();
+  document.getElementById('del-btn').disabled = !id || id==='hexapod';
+
+  const badge = document.getElementById('sel-badge');
+  const hint  = document.getElementById('vp-hint');
+  const selSt = document.getElementById('status-sel');
+
+  if (obj) {
+    badge.style.display='block';
+    badge.textContent = '◈ ' + obj.name;
+    hint.style.display = 'block';
+    selSt.textContent = '◈ ' + obj.name;
+    if (obj.type !== 'hexapod') syncTransformPanel(obj.mesh);
+  } else {
+    badge.style.display='none';
+    hint.style.display='none';
+    selSt.textContent = '— nothing selected —';
+    transformCtrl.detach();
+  }
+
+  if (currentTab === 'props' && !obj) setTab('robot');
+  renderRightPanel();
+}
+
+function isAncestor(child, ancestor) {
+  let c=child; while(c){if(c===ancestor)return true; c=c.parent;} return false;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════════════════════════════════
+function deleteSelected() {
+  if (!selectedId || selectedId==='hexapod') return;
+  const obj = objects.find(o=>o.id===selectedId); if(!obj) return;
+  transformCtrl.detach();
+  scene.remove(obj.mesh);
+  objects = objects.filter(o=>o.id!==selectedId);
+  selectedId = null;
+  renderSceneList();
+  renderRightPanel();
+  document.getElementById('del-btn').disabled = true;
+  document.getElementById('sel-badge').style.display='none';
+  document.getElementById('vp-hint').style.display='none';
+  document.getElementById('status-sel').textContent='— nothing selected —';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  TRANSFORM MODE
+// ══════════════════════════════════════════════════════════════════════
+function setTMode(mode) {
+  tMode = mode;
+  transformCtrl.setMode(mode);
+  ['translate','rotate','scale'].forEach(m=>{
+    document.getElementById('btn-'+m).classList.toggle('active',m===mode);
+  });
+  const labels = {translate:'↔ MOVE', rotate:'↻ ROTATE', scale:'⤡ SCALE'};
+  document.getElementById('status-mode').textContent = labels[mode];
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  POINTER EVENTS
+// ══════════════════════════════════════════════════════════════════════
+let pointerMovedDist = 0;
+let pointerDownPos = {x:0,y:0};
+
+function onPointerDown(e) {
+  if (e.button !== 0) return;
+  pointerDownPos = {x:e.clientX, y:e.clientY};
+  pointerMovedDist = 0;
+
+  // If transform control handles the event, skip orbit
+  if (transformCtrl.dragging) return;
+
+  orbitActive = true;
+  orbitPrev = {x:e.clientX, y:e.clientY};
+}
+
+function onPointerMove(e) {
+  pointerMovedDist += Math.abs(e.clientX - pointerDownPos.x) + Math.abs(e.clientY - pointerDownPos.y);
+
+  if (transformCtrl.dragging) { orbitActive=false; return; }
+  if (!orbitActive) return;
+
+  const dx = e.clientX - orbitPrev.x;
+  const dy = e.clientY - orbitPrev.y;
+  orbitPrev = {x:e.clientX, y:e.clientY};
+  orbitAngle.theta -= dx * 0.007;
+  orbitAngle.phi = Math.max(0.05, Math.min(Math.PI-0.05, orbitAngle.phi + dy*0.007));
+  updateCamera();
+}
+
+function onPointerUp(e) {
+  orbitActive = false;
+  if (transformCtrl.dragging) return;
+  if (pointerMovedDist < 5 && e.button===0) clickSelect(e);
+}
+
+function clickSelect(e) {
+  const mount = document.getElementById('canvas-mount');
+  const rect  = mount.getBoundingClientRect();
+  const ndc   = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+
+  if (!hits.length) { selectObject(null); return; }
+
+  // Skip ground and edge lines
+  let hit = hits.find(h => h.object.name !== '_ground' && !(h.object instanceof THREE.LineSegments));
+  if (!hit) { selectObject(null); return; }
+
+  let obj3 = hit.object;
+  while (obj3.parent && obj3.parent !== scene) obj3 = obj3.parent;
+
+  const found = objects.find(o => o.mesh===obj3 || isAncestor(hit.object, o.mesh));
+  if (found) {
+    selectObject(found.id);
+    setTab(found.type==='hexapod'?'robot':'props');
+  } else {
+    selectObject(null);
+  }
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  orbitAngle.radius = Math.max(2, Math.min(60, orbitAngle.radius + e.deltaY*0.022));
+  updateCamera();
+}
+
+function onKeyDown(e) {
+  const tag = document.activeElement?.tagName;
+  if (['INPUT','TEXTAREA'].includes(tag)) return;
+  if (e.key==='g'||e.key==='G') setTMode('translate');
+  if (e.key==='r'||e.key==='R') setTMode('rotate');
+  if (e.key==='s'||e.key==='S') setTMode('scale');
+  if (e.key==='Delete'||e.key==='Backspace') deleteSelected();
+  if (e.key==='Escape') { selectObject(null); }
+}
+
+function onResize() {
+  const mount = document.getElementById('canvas-mount');
+  camera.aspect = mount.clientWidth / mount.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(mount.clientWidth, mount.clientHeight);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  TRANSFORM PANEL SYNC
+// ══════════════════════════════════════════════════════════════════════
+function syncTransformPanel(mesh) {
+  const setV = (id,v) => { const el=document.getElementById(id); if(el) el.value=+v.toFixed(3); };
+  setV('px',mesh.position.x); setV('py',mesh.position.y); setV('pz',mesh.position.z);
+  setV('rx', THREE.MathUtils.radToDeg(mesh.rotation.x));
+  setV('ry', THREE.MathUtils.radToDeg(mesh.rotation.y));
+  setV('rz', THREE.MathUtils.radToDeg(mesh.rotation.z));
+  setV('sx',mesh.scale.x); setV('sy',mesh.scale.y); setV('sz',mesh.scale.z);
+}
+
+function applyTransform(key, val) {
+  const obj = objects.find(o=>o.id===selectedId); if(!obj?.mesh) return;
+  const mesh = obj.mesh;
+  const dr = THREE.MathUtils.degToRad;
+  if(key==='px') mesh.position.x=val;
+  if(key==='py') mesh.position.y=val;
+  if(key==='pz') mesh.position.z=val;
+  if(key==='rx') mesh.rotation.x=dr(val);
+  if(key==='ry') mesh.rotation.y=dr(val);
+  if(key==='rz') mesh.rotation.z=dr(val);
+  if(key==='sx') mesh.scale.x=val;
+  if(key==='sy') mesh.scale.y=val;
+  if(key==='sz') mesh.scale.z=val;
+}
+
+function applyUniformScale(f) {
+  const obj = objects.find(o=>o.id===selectedId); if(!obj?.mesh) return;
+  obj.mesh.scale.setScalar(f);
+  syncTransformPanel(obj.mesh);
+}
+
+function snapToGround() {
+  const obj = objects.find(o=>o.id===selectedId); if(!obj?.mesh) return;
+  const bbox = new THREE.Box3().setFromObject(obj.mesh);
+  obj.mesh.position.y += -bbox.min.y;
+  syncTransformPanel(obj.mesh);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  HEXAPOD CONTROLS
+// ══════════════════════════════════════════════════════════════════════
+function setJoint(legIdx, joint, val) {
+  const leg = hexLegs[legIdx]; if(!leg) return;
+  if(joint==='coxa')  leg.coxaPivot.rotation.y = val;
+  if(joint==='femur') leg.femurPivot.rotation.z = val;
+  if(joint==='tibia') leg.tibiaPivot.rotation.z = val;
+  legAngles[legIdx][joint] = val;
+  // update slider display
+  const slEl = document.getElementById(`slider-${joint}-${legIdx}`);
+  const vlEl = document.getElementById(`val-${joint}-${legIdx}`);
+  if(slEl) slEl.value = val;
+  if(vlEl) vlEl.textContent = ((val*180/Math.PI).toFixed(1))+'°';
+}
+
+function toggleWalk() {
+  if (isWalking) {
+    cancelAnimationFrame(walkAnimId);
+    isWalking = false;
+    document.getElementById('walk-btn').textContent = '▶  TRIPOD WALK GAIT';
+    document.getElementById('walk-btn').classList.remove('walk');
+    document.getElementById('walk-badge').style.display = 'none';
+    return;
+  }
+  isWalking = true;
+  document.getElementById('walk-btn').textContent = '◼  STOP ANIMATION';
+  document.getElementById('walk-btn').classList.add('walk');
+  document.getElementById('walk-badge').style.display = 'block';
+  let t = 0;
+  function tick() {
+    t += 0.042;
+    hexLegs.forEach((leg,i) => {
+      const ph = [0,3,4].includes(i) ? 0 : Math.PI;
+      const cy = Math.sin(t+ph)*0.44;
+      const fz = (Math.sin(t+ph+0.6)*0.44-0.20)*-leg.side;
+      const tz = (Math.sin(t+ph+1.1)*0.30+0.42)*leg.side;
+      leg.coxaPivot.rotation.y  = cy;
+      leg.femurPivot.rotation.z = fz;
+      leg.tibiaPivot.rotation.z = tz;
+      legAngles[i] = {coxa:cy, femur:fz, tibia:tz};
+    });
+    // live-update sliders if showing robot tab
+    if (currentTab==='robot') {
+      ['coxa','femur','tibia'].forEach(j=>{
+        const slEl = document.getElementById(`slider-${j}-${activeLeg}`);
+        const vlEl = document.getElementById(`val-${j}-${activeLeg}`);
+        const v = legAngles[activeLeg][j];
+        if(slEl) slEl.value = v;
+        if(vlEl) vlEl.textContent = ((v*180/Math.PI).toFixed(1))+'°';
+      });
+    }
+    walkAnimId = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function resetPose() {
+  cancelAnimationFrame(walkAnimId);
+  isWalking = false;
+  const el = document.getElementById('walk-btn');
+  if(el) { el.textContent='▶  TRIPOD WALK GAIT'; el.classList.remove('walk'); }
+  document.getElementById('walk-badge').style.display='none';
+  hexLegs.forEach((leg,i)=>{
+    const s=i%2===0?-1:1;
+    leg.coxaPivot.rotation.y=0;
+    leg.femurPivot.rotation.z=s*-0.22;
+    leg.tibiaPivot.rotation.z=s*0.48;
+    legAngles[i]={coxa:0,femur:s*-0.22,tibia:s*0.48};
+  });
+  renderRightPanel();
+}
+
+function setActiveLeg(i) {
+  activeLeg = i;
+  renderRightPanel();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  SCENE LIST
+// ══════════════════════════════════════════════════════════════════════
+function renderSceneList() {
+  const cont = document.getElementById('scene-scroll');
+  const typeIcon = {hexapod:'🤖',sphere:'○',box:'□',pyramid:'△',cylinder:'⌀',cone:'▽',torus:'⊙',model:'📦'};
+  cont.innerHTML = objects.map(obj=>`
+    <div class="scene-item ${obj.id===selectedId?'selected':''}" onclick="selectObject('${obj.id}');setTab('${obj.type==='hexapod'?'robot':'props'}')">
+      <div class="item-dot"></div>
+      <span style="font-size:11px">${typeIcon[obj.type]||'○'}</span>
+      <span class="item-label">${obj.name}</span>
+      <button class="vis-btn" onclick="event.stopPropagation();toggleVisible('${obj.id}')" title="Toggle visibility">
+        ${obj.visible?'👁':'🚫'}
+      </button>
+    </div>
+  `).join('');
+}
+
+function toggleVisible(id) {
+  const obj = objects.find(o=>o.id===id); if(!obj) return;
+  obj.visible = !obj.visible;
+  obj.mesh.visible = obj.visible;
+  renderSceneList();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  RIGHT PANEL
+// ══════════════════════════════════════════════════════════════════════
+function setTab(tab) {
+  currentTab = tab;
+  ['props','robot','info'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+  });
+  renderRightPanel();
+}
+
+function renderRightPanel() {
+  const cont = document.getElementById('r-content');
+  if (currentTab==='props')  cont.innerHTML = buildPropsPanel();
+  if (currentTab==='robot')  cont.innerHTML = buildRobotPanel();
+  if (currentTab==='info')   cont.innerHTML = buildInfoPanel();
+}
+
+function buildPropsPanel() {
+  const obj = objects.find(o=>o.id===selectedId);
+  if (!obj) return `<div class="empty-state">
+    <div class="empty-icon">◈</div>
+    <div class="empty-text">No object selected<br>Click an object in the<br>viewport or scene list</div>
+  </div>`;
+
+  const mesh = obj.mesh;
+  const rd = THREE.MathUtils.radToDeg;
+  const f = v => isNaN(v)?'0.000':Number(v).toFixed(3);
+
+  const numRow = (label, keys, vals) => `
+    <div class="r-sec">${label}</div>
+    <div class="num-grid">
+      ${keys.map((k,i)=>`
+        <div class="num-field">
+          <label>${['X','Y','Z'][i]}</label>
+          <input type="number" step="0.1" id="${k}" value="${f(vals[i])}"
+            oninput="applyTransform('${k}',parseFloat(this.value))"/>
+        </div>
+      `).join('')}
+    </div>`;
+
+  return `
+    <div class="r-sec">◈ ${obj.name.toUpperCase()}</div>
+    ${numRow('POSITION', ['px','py','pz'], [mesh.position.x, mesh.position.y, mesh.position.z])}
+    ${numRow('ROTATION (°)', ['rx','ry','rz'], [rd(mesh.rotation.x), rd(mesh.rotation.y), rd(mesh.rotation.z)])}
+    ${numRow('SCALE', ['sx','sy','sz'], [mesh.scale.x, mesh.scale.y, mesh.scale.z])}
+    <div class="scale-btns">
+      <button class="scale-btn" onclick="applyUniformScale(0.5)">× 0.5</button>
+      <button class="scale-btn" onclick="applyUniformScale(1)">RESET</button>
+      <button class="scale-btn" onclick="applyUniformScale(2)">× 2</button>
+    </div>
+    <div class="r-sec" style="margin-top:16px">SNAP</div>
+    <button class="anim-btn" onclick="snapToGround()" style="letter-spacing:1px">
+      ⬇  SNAP TO GROUND
+    </button>
+    <div class="tip-box">
+      Use the <span class="tip-key">gizmo arrows</span> in viewport<br>
+      to drag objects. Or type exact values above.<br>
+      <span class="tip-key">G</span> move · <span class="tip-key">R</span> rotate · <span class="tip-key">S</span> scale
+    </div>
+  `;
+}
+
+function buildRobotPanel() {
+  const legNames = ['Front L','Front R','Mid L','Mid R','Rear L','Rear R'];
+
+  const legGrid = legNames.map((name,i)=>`
+    <button class="leg-btn ${activeLeg===i?'active':''}" onclick="setActiveLeg(${i})">${name}</button>
+  `).join('');
+
+  const joints = [
+    {k:'coxa',  label:'COXA  — Hip Swing'},
+    {k:'femur', label:'FEMUR — Lift / Lower'},
+    {k:'tibia', label:'TIBIA — Knee Bend'},
+  ];
+  const sliderRows = joints.map(({k,label})=>{
+    const v = legAngles[activeLeg][k];
+    const deg = ((v*180/Math.PI)).toFixed(1);
+    return `
+      <div class="joint-row">
+        <div class="joint-header">
+          <span class="joint-label">${label}</span>
+          <span class="joint-val" id="val-${k}-${activeLeg}">${deg}°</span>
+        </div>
+        <input type="range" min="-1.6" max="1.6" step="0.01" value="${v}"
+          id="slider-${k}-${activeLeg}"
+          oninput="setJoint(${activeLeg},'${k}',parseFloat(this.value));document.getElementById('val-${k}-${activeLeg}').textContent=(this.value*180/Math.PI).toFixed(1)+'°'"/>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="r-sec">SELECT LEG</div>
+    <div class="leg-grid">${legGrid}</div>
+
+    <div class="r-sec" style="margin-top:14px">LEG ${activeLeg+1} — ${legNames[activeLeg]}</div>
+    ${sliderRows}
+
+    <div class="r-sec">ANIMATION</div>
+    <button class="anim-btn ${isWalking?'walk':''}" id="walk-btn" onclick="toggleWalk()">
+      ${isWalking?'◼  STOP ANIMATION':'▶  TRIPOD WALK GAIT'}
+    </button>
+    <button class="anim-btn" onclick="resetPose()">↺  RESET POSE</button>
+
+    <div class="tip-box">
+      <span class="tip-key">18 DOF</span> hexapod · Alternating tripod gait.<br>
+      Select a leg above, drag sliders to pose.<br>
+      Click the hexapod in viewport to open this panel.
+    </div>
+  `;
+}
+
+function buildInfoPanel() {
+  return `
+    <div class="r-sec">FILE FORMATS</div>
+    <div class="info-row">GLB<span class="info-val green">✅ Supported</span></div>
+    <div class="info-row">GLTF<span class="info-val green">✅ Supported</span></div>
+    <div class="info-row">FBX<span class="info-val gold">🚧 Coming soon</span></div>
+    <div class="info-row">OBJ<span class="info-val gold">🚧 Coming soon</span></div>
+    <div class="info-row">USDZ<span class="info-val" style="color:var(--red)">❌ Not supported</span></div>
+
+    <div class="r-sec">CONTROLS</div>
+    <div class="info-row">Click object<span class="info-val">Select it</span></div>
+    <div class="info-row">Drag gizmo arrows<span class="info-val">Move / Rotate / Scale</span></div>
+    <div class="info-row">Drag empty space<span class="info-val">Orbit camera</span></div>
+    <div class="info-row">Scroll<span class="info-val">Zoom in/out</span></div>
+    <div class="info-row">G<span class="info-val gold">Move mode</span></div>
+    <div class="info-row">R<span class="info-val gold">Rotate mode</span></div>
+    <div class="info-row">S<span class="info-val gold">Scale mode</span></div>
+    <div class="info-row">Delete<span class="info-val gold">Remove selected</span></div>
+    <div class="info-row">Escape<span class="info-val">Deselect</span></div>
+
+    <div class="r-sec">SCENE</div>
+    <div class="info-row">Objects<span class="info-val">${objects.length}</span></div>
+
+    <div class="r-sec">ENGINE</div>
+    <div class="info-row">Three.js<span class="info-val green">r128 ✓</span></div>
+    <div class="info-row">TransformControls<span class="info-val green">✓ Active</span></div>
+    <div class="info-row">GLTF Loader<span class="info-val green">✓ Active</span></div>
+    <div class="info-row">Shadows<span class="info-val green">PCF Soft ✓</span></div>
+    <div class="info-row">Tone Mapping<span class="info-val green">ACES ✓</span></div>
+
+    <div class="r-sec">HEXAPOD</div>
+    <div class="info-row">Legs<span class="info-val">6</span></div>
+    <div class="info-row">Joints per leg<span class="info-val">3</span></div>
+    <div class="info-row">Total DOF<span class="info-val">18</span></div>
+    <div class="info-row">Kinematics<span class="info-val">Forward (FK)</span></div>
+    <div class="info-row">Gait<span class="info-val">Alternating Tripod</span></div>
+  `;
+}
+</script>
+</body>
+</html>
